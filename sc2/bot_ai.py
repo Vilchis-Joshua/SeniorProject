@@ -176,7 +176,7 @@ class BotAI(object):
             ideal = g.ideal_harvesters
             deficit = ideal - actual
 
-            for x in range(0, deficit):
+            for _ in range(0, deficit):
                 if worker_pool:
                     w = worker_pool.pop()
                     if len(w.orders) == 1 and w.orders[0].ability.id in [AbilityId.HARVEST_RETURN]:

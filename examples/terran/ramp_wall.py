@@ -5,6 +5,7 @@ from sc2 import Race, Difficulty
 from sc2.constants import *
 from sc2.player import Bot, Computer
 from sc2.position import Point2, Point3
+from sc2.game_info import *
 
 
 class RampWallBot(sc2.BotAI):
@@ -43,7 +44,7 @@ class RampWallBot(sc2.BotAI):
         # If you prefer to have the barracks in the middle without room for addons, use the following instead
         # barracks_placement_position = self.main_base_ramp.barracks_in_middle
 
-        depots = self.units(SUPPLYDEPOT) | self.units(SUPPLYDEPOTLOWERED)
+        #depots = self.units(SUPPLYDEPOT) | self.units(SUPPLYDEPOTLOWERED)
 
         # Filter locations close to finished supply depots
         if depots:
@@ -72,10 +73,10 @@ class RampWallBot(sc2.BotAI):
 
 
 def main():
-    sc2.run_game(sc2.maps.get("(2)CatalystLE"), [
+    sc2.run_game(sc2.maps.get("Sequencer LE"), [
         Bot(Race.Terran, RampWallBot()),
-        Computer(Race.Zerg, Difficulty.Hard)
-    ], realtime=False)
+        Computer(Race.Zerg, Difficulty.Easy)
+    ], realtime=True)
 
 if __name__ == '__main__':
     main()
