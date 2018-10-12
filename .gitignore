@@ -21,3 +21,5 @@ mini_games/
 *.SC2Replay
 
 \.idea/
+
+.sh

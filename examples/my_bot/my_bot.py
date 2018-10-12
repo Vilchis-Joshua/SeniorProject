@@ -58,7 +58,8 @@ class MyBot(sc2.BotAI):
       elif self.units(SUPPLYDEPOT).exists:
          if self.units(BARRACKS).ready.exists and self.supply_left < 5 and self.can_afford(SUPPLYDEPOT):
             if not self.already_pending(SUPPLYDEPOT):
-               #await self.build(SUPPLYDEPOT, near=cc.position.towards(self.game_info.map_center, 5))
+               #await self.build(SUPPLYDEPOT,
+               #near=cc.position.towards(self.game_info.map_center, 5))
                await self.build(SUPPLYDEPOT, near=cc)
       return
    async def build_workers(self, cc):
@@ -107,6 +108,28 @@ class MyBot(sc2.BotAI):
             break
          await self.do(rax.train(UnitTypeId.MARINE))
       return
+   async def lower_supply_depots(self):
+      """
+      This will lower the supply depots when necessary
+      """
+      for depo in self.units(SUPPLYDEPOTLOWERED).ready:
+         for unit in self.known_enemy_units.not_structure:
+               if unit.position.to2.distance_to(depo.position.to2) < 10:
+                  await self.do(depo(MORPH_SUPPLYDEPOT_RAISE))
+                  break
+      return
+   async def raise_supply_depot():
+      """
+      This will raise the supply depots when necessary
+      """
+      for depo in self.units(SUPPLYDEPOT).ready:
+         for unit in self.known_enemy_units.not_structure:
+            if unit.position.to2.distance_to(depo.position.to2) < 15:
+               break
+            else:
+               await self.do(depo(MORPH_SUPPLYDEPOT_LOWER))
+
+
 
    # Bot driver function
    async def on_step(self, iteration):
@@ -128,6 +151,7 @@ class MyBot(sc2.BotAI):
       await self.build_refinery()
       await self.distribute_workers()
       await self.build_marines()
+      await self.lower_supply_depots()
           
 
 def main():
