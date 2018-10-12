@@ -22,4 +22,4 @@ mini_games/
 
 \.idea/
 
-.sh
+*.sh
