@@ -1,9 +1,10 @@
 {
   "ExpandedNodes": [
     "",
+    "\\examples",
     "\\examples\\my_bot",
-    "\\examples\\terran",
-    "\\examples\\zerg"
+    "\\examples\\terran"
   ],
+  "SelectedNode": "\\examples\\my_bot\\my_bot.py",
   "PreviewInSolutionExplorer": false
 }

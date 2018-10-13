@@ -16,20 +16,23 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 class MyBot(sc2.BotAI):
-   # It will go through a proper build order
-   #  X 1) Create 2 miners
-   #  X 2) Create a supply depot
-   #  X 3) As minerals come, it will then create more miners until 18
-   #  X 4) During this time, around miner 16, it will create a barracks
-   #  X 5) From the barracks, it will cap the supply with marines
-   #  X 6) After the supply cap, several more supply depots will be created.
-   #  X 7) It will send these marines for a preemptive strike
-   #  X 8) Create a factory <-------------------- This is still not done
-   #  though.  I need to figure out a better way to get it working in sync.  I
-   #  can just build the factory I think.
-   #      9) Create x number of marauder and y number of helion
-   #      10) When 200 supply cap reached, it will then attack in full force
-   #      11) Repeat strategy
+   """   
+   It will go through a proper build order
+     X 1) Create 2 miners
+     X 2) Create a supply depot
+     X 3) As minerals come, it will then create more miners until 18
+     X 4) During this time, around miner 16, it will create a barracks
+     X 5) From the barracks, it will cap the supply with marines
+     X 6) After the supply cap, several more supply depots will be created.
+     X 7) It will send these marines for a preemptive strike
+     X 8) Create a factory <-------------------- This is still not done
+                  though.  I need to figure out a better way to get it working in sync.  I
+                  can just build the factory I think.
+      9) Create x number of marauder and y number of helion
+      10) When 200 supply cap reached, it will then attack in full force
+      11) Repeat strategy
+   """
+
          
 
 
@@ -118,7 +121,7 @@ class MyBot(sc2.BotAI):
                   await self.do(depo(MORPH_SUPPLYDEPOT_RAISE))
                   break
       return
-   async def raise_supply_depot():
+   async def raise_supply_depot(self):
       """
       This will raise the supply depots when necessary
       """
@@ -128,7 +131,11 @@ class MyBot(sc2.BotAI):
                break
             else:
                await self.do(depo(MORPH_SUPPLYDEPOT_LOWER))
-
+      return
+   async def expand(self):
+      if self.units(UnitTypeId.COMMANDCENTER).amount < 2 and self.can_afford(UnitTypeId.COMMANDCENTER):
+         await self.expand_now()
+      return
 
 
    # Bot driver function
@@ -152,6 +159,7 @@ class MyBot(sc2.BotAI):
       await self.distribute_workers()
       await self.build_marines()
       await self.lower_supply_depots()
+      #await self.expand()
           
 
 def main():
