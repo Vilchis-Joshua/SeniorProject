@@ -1,7 +1,7 @@
 import random
 import sc2
 import numpy as np
-from sc2 import run_game, maps, Race, Difficulty
+from sc2 import run_game, maps, Race, Difficulty, Result
 from sc2.constants import *
 from sc2.position import Point2, Point3
 from sc2.unit import Unit
@@ -9,7 +9,7 @@ from sc2.player import Bot, Computer, Human
 from sc2.ids.unit_typeid import UnitTypeId
 from typing import List
 from sc2.helpers import ControlGroup
-import random
+import time
 
 
 # Maybe I will end up using these later
@@ -18,9 +18,8 @@ import random
 import cv2
 
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-#os.environ["SC2PATH"] = '/starcraftstuff/StarCraftII/'
-
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ["SC2PATH"] = 'C:\Program Files (x86)\StarCraft II'
 class MyBot(sc2.BotAI):
    """   
    It will go through a proper build order
@@ -43,17 +42,18 @@ class MyBot(sc2.BotAI):
       self.combinedActions = []
       self.attack_group = set()
       self.ITERATIONS_PER_MINUTE = 165
+      self.train_data = []
+      self.do_something_after = 0
 
    def on_end(self, game_result):
       """
       Trying to figure out the benefit of this
       """
-      print('---on_end called')
+      print('--on_end called')
       print(game_result)
 
       if game_result == Result.Victory:
          np.save("train_data/{}.npy".format(str(int(time.time()))), np.array(self.train_data))
-
 
    async def do_actions(self, actions: List["UnitCommand"]):
       """
@@ -163,8 +163,10 @@ class MyBot(sc2.BotAI):
       return
 
    async def expand(self):
-      if self.units(UnitTypeId.COMMANDCENTER).amount < 2 and self.can_afford(UnitTypeId.COMMANDCENTER):
+      if self.units(UnitTypeId.COMMANDCENTER).amount < 2 and self.can_afford(NEXUS):
          await self.expand_now()
+      #if self.units(UnitTypeId.COMMANDCENTER).amount < (self.iteration / self.ITERATIONS_PER_MINUTE) and self.can_afford(UnitTypeId.COMMANDCENTER):
+      #   await self.expand_now()
       return
 
    async def upgrade_to_orbital(self):
@@ -177,17 +179,36 @@ class MyBot(sc2.BotAI):
       """
       The function for attacking. Need to work on it a little bit
       """
-      if self.units(UnitTypeId.MARINE).amount > 3:
-         if len(self.known_enemy_units) > 0:
-            for marine in self.units(UnitTypeId.MARINE).idle:
-               await self.do(marine.attack(random.choice(self.known_enemy_units)))
-         elif self.units(UnitTypeId.MARINE).amount > 3:
-            if len(self.known_enemy_units) > 3:
-               for marine in self.units(UnitTypeId.MARINE).idle:
-                  await self.do(marine.attack(random.choice(self.known_enemy_units)))
+      #if self.units(UnitTypeId.MARINE).amount > 3:
+      #   if len(self.known_enemy_units) > 0:
+      #      for marine in self.units(UnitTypeId.MARINE).idle:
+      #         await
+      #         self.do(marine.attack(random.choice(self.known_enemy_units)))
+      #   elif self.units(UnitTypeId.MARINE).amount > 3:
+      #      if len(self.known_enemy_units) > 3:
+      #         for marine in self.units(UnitTypeId.MARINE).idle:
+      #            await
+      #            self.do(marine.attack(random.choice(self.known_enemy_units)))
+       # {UNIT: [n to fight, n to defend]}
+      aggressive_units = {MARINE: [2, 2]}
+      
+      if self.units(UnitTypeId.MARINE).amount > 20:
+         for UNIT in aggressive_units:
+            if self.units(UNIT).amount > aggressive_units[UNIT][0] and self.units(UNIT).amount > aggressive_units[UNIT][1]:
+               for s in self.units(UNIT).idle:
+                  await self.do(s.attack(self.find_target(self.state)))
+                  #self.find_target(self.state)
+
+            elif self.units(UNIT).amount > aggressive_units[UNIT][1]:
+               if len(self.known_enemy_units) > 0:
+                  for s in self.units(UNIT).idle:
+                     await self.do(s.attack(random.choice(self.known_enemy_units)))
       return
 
-   async def find_target(self):
+   def find_target(self, state):
+      """
+      This is not part of the asynchronous tasks
+      """
       if len(self.known_enemy_units) > 0:
          return random.choice(self.known_enemy_units)
       elif len(self.known_enemy_units) > 0:
@@ -197,12 +218,18 @@ class MyBot(sc2.BotAI):
       return
    
    async def intel(self):
+      game_data = np.zeros((self.game_info.map_size[1], self.game_info.map_size[0], 3), np.uint8)
+
       draw_dict = {
                   COMMANDCENTER: [15, (0, 255, 0)],
                   SUPPLYDEPOT: [3, (20, 235, 0)],
-                  MINER: [1, (55, 200, 0)],
-                  MARINE: [1, (55, 200, 0)],
+                  #MINER: [1, (55, 200, 0)],
+                  MARINE: [1, (55, 200, 0)]
                   }
+      for unit_type in draw_dict:
+         for unit in self.units(unit_type).ready:
+            pos = unit.position
+            cv2.circle(game_data, (int(pos[0]), int(pos[1])), draw_dict[unit_type][0], draw_dict[unit_type][1], -1)
       game_data = np.zeros((self.game_info.map_size[1], self.game_info.map_size[0], 3), np.uint8)
       for command_center in self.units(UnitTypeId.COMMANDCENTER):
          command_center_pos = command_center.position
@@ -212,6 +239,36 @@ class MyBot(sc2.BotAI):
          resized = cv2.resize(flipped, dsize=None, fx=2, fy=2)
          cv2.imshow('Intel', resized)
          cv2.waitKey(1)
+
+
+      main_base_names = ['commandcenter', 'hatchery', 'nexus']
+      for enemy_building in self.known_enemy_structures:
+         pos = enemy_building.position
+         if enemy_building.name.lower() not in main_base_names:
+            cv2.circle(game_data, (int(pos[0]), int(pos[1])), 5, (200, 50, 212), -1)
+      for enemy_building in self.known_enemy_structures:
+         pos = enemy_building.position
+         if enemy_building.name.lower() in main_base_names:
+            cv2.circle(game_data, (int(pos[0]), int(pos[1])), 15, (0, 0, 255), -1)
+
+      for enemy_unit in self.known_enemy_units:
+         if not enemy_unit.is_structure:
+            worker_names = ['probe',
+               'scv',
+               'drone']
+            pos = enemy_unit.position
+            if enemy_unit.name.lower() in worker_names:
+               cv2.circle(game_data, (int(pos[0]), int(pos[1])), 1, (55, 0, 155), -1)
+            else:
+               cv2.circle(game_data, (int(pos[0]), int(pos[1])), 3, (50, 0, 215), -1)
+
+              # flip horizontally to make our final fix in visual
+              # representation:
+      flipped = cv2.flip(game_data, 0)
+      resized = cv2.resize(flipped, dsize=None, fx=2, fy=2)
+
+      cv2.imshow('Intel', resized)
+      cv2.waitKey(1)
 
    async def scout(self):
       #if len(self.units(UnitTypeId.))
@@ -240,9 +297,9 @@ class MyBot(sc2.BotAI):
       await self.build_offensive_force()
       await self.intel()
       await self.attack()
-      await self.lower_supply_depots()              #Not working
-      #await self.expand()                           Thinking about this
-      await self.do_actions(self.combinedActions)
+      await self.lower_supply_depots()              #Only works on one supplydepot
+      await self.expand()                           
+      #await self.do_actions(self.combinedActions)
       
 
           
@@ -253,77 +310,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-   
-      ## This part will create the supply depots
-      #if self.can_afford(SUPPLYDEPOT) and not self.units(SUPPLYDEPOT).exists:
-      #   await self.build(SUPPLYDEPOT,
-      #   near=cc.position.towards(self.game_info.map_center, 5))
-      #elif self.units(SUPPLYDEPOT).exists:
-      #   if self.units(BARRACKS).ready.exists and self.supply_left < 5 and
-      #   self.can_afford(SUPPLYDEPOT):
-      #      if not self.already_pending(SUPPLYDEPOT):
-      #         await self.build(SUPPLYDEPOT,
-      #         near=cc.position.towards(self.game_info.map_center, 5))
-      
-      ## Get up to the 18 miners.  This seems to not count the SCV being used
-      ## to
-      ## build something.
-      #if not self.already_pending(UnitTypeId.SCV):
-      #   if self.units(UnitTypeId.SCV).amount < 20:
-      #      if self.can_afford(SCV) and self.units(SUPPLYDEPOT).amount == 1:
-      #         if self.units(SCV).amount < 19 and not
-      #         self.already_pending(SCV):
-      #            await self.do(cc.train(SCV))
-
-      #if self.can_afford(UnitTypeId.SCV) and self.units(UnitTypeId.SCV).amount
-      #< 18:
-      #   await self.do(cc.train(UnitTypeId.SCV))
-
-      ## This part will create the barracks
-      #if self.can_afford(BARRACKS) and self.units(BARRACKS).amount < 2:
-      #   await self.build(BARRACKS,
-      #   near=cc.position.towards(self.game_info.map_center, 10))
-
-      
-      ## Create some marines
-      #for rax in self.units(BARRACKS).ready.noqueue:
-      #   if not self.can_afford(MARINE):
-      #      break
-      #   await self.do(rax.train(MARINE))
-
-      ## Put the idle miners back to work
-      #for scv in self.units(SCV).idle:
-      #   await self.do(scv.gather(self.state.mineral_field.closest_to(cc)))
-      
-      ## Attack with units
-      #if self.units(UnitTypeId.MARINE).amount == 10:
-      #   for marine in self.units(MARINE):
-      #      await self.do(marine.attack(self.enemy_start_locations[0]))
-
-      #if self.units(MARINE).idle.amount > 15 and iteration % 50 == 1:
-      #   cg = ControlGroup(self.units(MARINE).idle)
-      #   self.attack_groups.add(cg)
-
-      #if self.units(UnitTypeId.BARRACKS).exists:
-      #   if self.can_afford(FACTORY):
-      #      await self.build(FACTORY, near =
-      #      cc.position.towards(self.game_info.map_center, 10))
-
-      #for ac in self.attack_group:
-      #   alive_units = ac.select_units(self.units)
-      #   if alive_units.exists and alive_units.idle.exists:
-      #         target =
-      #         self.known_enemy_structures.random_or(self.enemy_start_locations[0]).position
-      #         for marine in ac.select_units(self.units):
-      #            await self.do(marine.attack(target))
-      #   else:
-      #         self.attack_groups.remove(ac)
-
-      ## execute actions
-      #await self.do_actions(self.combinedActions)
-      #await self.distribute_workers()
