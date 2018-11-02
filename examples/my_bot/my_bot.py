@@ -9,6 +9,8 @@ from sc2.position import Point2, Point3
 from sc2.unit import Unit
 from sc2.player import Bot, Computer, Human
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.units import Units
+from sc2.helpers.control_group import ControlGroup
 from typing import List
 import time
 import cv2
@@ -50,16 +52,12 @@ class MyBot(sc2.BotAI):
       self.enemy_expansions = []
 
       self.build_two_more_barracks = False
-      self.wasHarrassed = True
 
-      # Trying to set up the attack force
-      #self.main_force = {}
-      #self.existing_main_ids = []
-      #self.harass_force = {}
-      #self.existing_harass_ids = []
-
+      #self.practice_group = ControlGroup()
+      self.fill_harass_force = True
       self.harass_force_ids = []
       self.main_force_ids = []
+      self.units_to_be_removed = []
 
       #choices = { 0: self.build_supply_depots,
       #           1: self.build_marine,
@@ -134,7 +132,7 @@ class MyBot(sc2.BotAI):
       if not self.already_pending(UnitTypeId.SCV):
          if self.units(UnitTypeId.SCV).amount < 20:
             if self.can_afford(UnitTypeId.SCV) and self.units(UnitTypeId.SUPPLYDEPOT).amount >= 1:
-               if self.units(UnitTypeId.SCV).amount < 19 and not self.already_pending(UnitTypeId.SCV):
+               if self.units(UnitTypeId.SCV).amount < 19 and not self.already_pending(UnitTypeId.SCV) and self.units(UnitTypeId.COMMANDCENTER).ready.noqueue:
                   await self.do(cc.train(UnitTypeId.SCV))
       return
 
@@ -152,7 +150,7 @@ class MyBot(sc2.BotAI):
       """
       if self.can_afford(UnitTypeId.BARRACKS) and self.units(UnitTypeId.BARRACKS).amount < 2:
          await self.build(UnitTypeId.BARRACKS, near=cc.position.towards(self.game_info.map_center, 10))
-      elif self.build_two_more_barracks:
+      elif self.fill_harass_force == False:
          if self.can_afford(UnitTypeId.BARRACKS) and self.units(UnitTypeId.BARRACKS).amount < 5:
             await self.build(UnitTypeId.BARRACKS, near = cc.position.towards(self.game_info.map_center, 15))
       return
@@ -257,33 +255,33 @@ class MyBot(sc2.BotAI):
 
             # no attack
             if choice == 0:
-               print('choice 1')
+               #print('choice 1')
                wait = random.randrange(65, 165)
                self.do_something_after = self.iteration + wait
 
             # Attack unit closest to our command center
             elif choice == 1:
-               print('choice 2')
+               #print('choice 2')
                if len(self.known_enemy_units) > 0:
                   target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
-                  print('choic 2 target: {}'.format(target))
+                  #print('choic 2 target: {}'.format(target))
                
             
             # attack enemy structures
-            elif choice == 2:
+            #elif choice == 2:
                print('choice 3')
                if len(self.known_enemy_structures) > 0:
                   target = random.choice(self.known_enemy_structures)
-                  print('choic 3 target: {}'.format(target))
+                  #print('choic 3 target: {}'.format(target))
 
             # attack enemy start
             elif choice == 3:
-               print('choice 4')
+               #print('choice 4')
                target = self.enemy_start_locations[0]
-               print('choic 4 target: {}'.format(target))
+               #print('choic 4 target: {}'.format(target))
 
             elif choice == 4:
-               print('choice 5')
+               #print('choice 5')
                # For now, if the harass list is full, send them in. Later I need to come back and send them with more thought
                if len(self.harass_force_ids) >= 10:
                   target = self.enemy_start_locations[0]
@@ -299,13 +297,11 @@ class MyBot(sc2.BotAI):
                if len(self.harass_force_ids) >= 10:
                   for marine in self.units(UnitTypeId.MARINE):
                      if marine.tag in self.harass_force_ids:
-                        print('harass tag is there')
                         await self.do(marine.attack(target))
             if target:
-               if len(self.harass_force_ids) == 10 and len(self.main_force_ids) >= 50:
+               if len(self.main_force_ids) >= 30:
                   for marine in self.units(UnitTypeId.MARINE):
                      if marine.tag in self.main_force_ids:
-                        print('main tag is there')
                         await self.do(marine.attack(target))
 
             y = np.zeros(5)
@@ -416,6 +412,8 @@ class MyBot(sc2.BotAI):
       return
 
    async def split_army(self):
+      if self.iteration % 500 == 0:
+         self.fill_harass_force = True
       if self.units(UnitTypeId.MARINE).exists:
          for marine in self.units(UnitTypeId.MARINE): 
             if len(self.harass_force_ids) < 10:
@@ -426,18 +424,27 @@ class MyBot(sc2.BotAI):
                if not marine.tag in self.harass_force_ids:
                   if not marine.tag in self.main_force_ids:
                      self.main_force_ids.append(marine.tag)
+      if len(self.harass_force_ids) == 10:
+         self.fill_harass_force = False
       return
 
-   async def clean_up(self):  
-      if self.units(UnitTypeId.MARINE).exists:
-         for marine in self.units(UnitTypeId.MARINE):
-            if marine.tag in self.harass_force_ids:
-               if marine.health < 1:
-                  print('one of them died')
-              
+   async def clean_up(self):
+      temp_array = []
+      temp_harass_array = self.harass_force_ids
+      for marine in self.units(UnitTypeId.MARINE):
+         temp_array.append(marine.tag)
 
-      return 
+      if len(self.harass_force_ids) > 1:
+         for unit_tag in temp_harass_array:
+            if unit_tag not in temp_array:
+               self.harass_force_ids.remove(unit_tag)
+
+      del temp_array
+      del temp_harass_array
+
                
+
+
    async def on_step(self, iteration):
       cc = self.units(UnitTypeId.COMMANDCENTER)
       if not cc.exists:
@@ -450,7 +457,7 @@ class MyBot(sc2.BotAI):
 
       self.iteration = iteration
       #self.time = (self.state.game_loop / 22.4) / 60
-      #print('Time:',self.time)
+      #print('Time:', self.time)
 
       await self.split_army()
       await self.upgrade_to_orbital()
@@ -458,24 +465,24 @@ class MyBot(sc2.BotAI):
       await self.build_workers(cc)
       await self.put_miners_to_work(cc)
       await self.create_barracks(cc)
-      await self.build_refinery()
+      #await self.build_refinery()
       await self.distribute_workers()
       await self.build_offensive_force()
       await self.attack()
       await self.lower_supply_depots()              #Only works on one supplydepot
       await self.expand()
-      if not self.wasHarrassed:
-         await self.harass()
       await self.scout()
       await self.intel()
       await self.clean_up()
-      print('main army: {}'.format(len(self.main_force_ids)))
-      print('harass army: {}'.format(len(self.harass_force_ids)))
-
+      if self.iteration % 100 == 0:
+         print('Number of barracks: {}'.format(len(self.units(UnitTypeId.BARRACKS))))
+      if self.iteration % 200 == 0:
+         print('Number of harass force: {}'.format(len(self.harass_force_ids)))
+         print('Number of main force: {}'.format(len(self.main_force_ids)))
           
 def main():
    count = 0
-   while count != 1:
+   while count != 50:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
