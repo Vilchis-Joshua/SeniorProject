@@ -50,11 +50,13 @@ class MyBot(sc2.BotAI):
       self.scouts_and_spots = {}
       self.scv_scout = []
       self.enemy_expansions = []
+     
 
       self.build_two_more_barracks = False
 
       #self.practice_group = ControlGroup()
       self.fill_harass_force = True
+      self.main_force_has_attacked = False
       self.harass_force_ids = []
       self.main_force_ids = []
       self.units_to_be_removed = []
@@ -68,7 +70,7 @@ class MyBot(sc2.BotAI):
       self.train_data = []
       if self.use_model:
          print('USING MODEL')
-         self.model = keras.models.load_model("BasicCNN-10-epochs-0.0001-LR-STAGE1")
+         self.model = keras.models.load_model("BasicCNN-10-epochs-0.0001-LR-STAGE2")
       return
 
    def on_end(self, game_result):
@@ -84,7 +86,8 @@ class MyBot(sc2.BotAI):
          np.array(self.train_data))
       return
 
-   # ======================================================================================= THIS MAY BE IMPORTANT 
+   # =======================================================================================
+   # THIS MAY BE IMPORTANT
       #with open('gameout-random-vs-easy.txt', 'a') as f:
       #   if self.use_model:
       #      f.writelines('Model {}\n'.format(game_result))
@@ -92,13 +95,12 @@ class MyBot(sc2.BotAI):
       #      f.write('Random {}\n'.format(game_result))
       #return
 
-   #def on_building_construction_complete(self, unit: UNIT):
-   #   if (unit.ready)
    def is_first_barracks_built(self):
-      if self.units(UnitTypeId.BARRACKS).amount == 1:
-         return True
-      else:
-         return False
+      if self.units(UnitTypeId.BARRACKS).ready:
+         if self.units(UnitTypeId.BARRACKS).amount == 1:
+            return True
+         else:
+            return False
  
    async def do_actions(self, actions: List["UnitCommand"]):
       """
@@ -247,7 +249,8 @@ class MyBot(sc2.BotAI):
                choice_dict = {0: "No Attack!",
                               1: "Attack close to our nexus!",
                               2: "Attack Enemy Structure!",
-                              3: "Attack Eneemy Start!"
+                              3: "Attack Eneemy Start!",
+                              4: "Harass!"
                               }
                print('Choice #{}:{}'.format(choice, choice_dict[choice]))
             else:
@@ -269,7 +272,7 @@ class MyBot(sc2.BotAI):
             
             # attack enemy structures
             #elif choice == 2:
-               print('choice 3')
+               #print('choice 3')
                if len(self.known_enemy_structures) > 0:
                   target = random.choice(self.known_enemy_structures)
                   #print('choic 3 target: {}'.format(target))
@@ -282,16 +285,17 @@ class MyBot(sc2.BotAI):
 
             elif choice == 4:
                #print('choice 5')
-               # For now, if the harass list is full, send them in. Later I need to come back and send them with more thought
+               # For now, if the harass list is full, send them in.  Later I
+               # need to come back and send them with more thought
                if len(self.harass_force_ids) >= 10:
                   target = self.enemy_start_locations[0]
                   for unit_id in self.harass_force_ids:
                      for unit in self.units(UnitTypeId.MARINE):
                         if unit_id == unit.tag:
                            await self.do(unit.attack(target))
-                           
-
-
+               y = np.zeros(5)
+               y[choice] = 1
+               self.train_data.append([y, self.flipped])
 
             if target:
                if len(self.harass_force_ids) >= 10:
@@ -303,11 +307,18 @@ class MyBot(sc2.BotAI):
                   for marine in self.units(UnitTypeId.MARINE):
                      if marine.tag in self.main_force_ids:
                         await self.do(marine.attack(target))
+                  self.main_force_has_attacked = True
+
+            #if self.main_force_has_attacked:
+            #   if len(self.main_force_ids) >= 30:
+            #      for marine in self.units(UnitTypeId.MARINE):
+            #         if marine.tag in self.main_force_ids:
+            #            await
+            #            self.do(marine.attack(self.enemy_start_locations[1]))
 
             y = np.zeros(5)
             y[choice] = 1
             self.train_data.append([y, self.flipped])
-      return
 
    def find_target(self, state):
       """
@@ -365,11 +376,26 @@ class MyBot(sc2.BotAI):
       return
 
    async def scout(self):
-      # Periodically go and scout. This needs to be improve upon. Except I can't get self.state.game_loop equation to work for me.....
-      if self.iteration % 10 == 0:
+
+      self.expand_dis_dir = {}
+
+      for el in self.expansion_locations:
+         distance_to_enemy_start = el.distance_to(self.enemy_start_locations[0])
+         self.expand_dis_dir[distance_to_enemy_start] = el
+         
+      self.ordered_exp_distances = sorted(k for k in self.expand_dis_dir)
+
+      # Periodically go and scout.  This needs to be improve upon.  Except I
+      # can't get self.state.game_loop equation to work for me.....
+      if len(self.scv_scout) > 0:
+         for scv in self.units(UnitTypeId.SCV):
+            if not len(self.scv_scout) == 1:
+               self.scv_scout.append(scv.tag)
+
+      if self.iteration % 100 == 0:
          isDone = False
       
-      # For the moment, I am only checking for the firs initial base
+      # For the moment, I am only checking for the first initial base
       self.enemy_expansions.append(self.enemy_start_locations[0])
       
       # I will only send the scout when the first barracks is built.
@@ -382,12 +408,29 @@ class MyBot(sc2.BotAI):
                self.scv_scout.append(scout)
                isDone = False
                await self.do(scout.move(self.enemy_expansions[0]))
-      # After this, I would like to add a different unit as a scout, or use the orbital command if I can get that to work
+
+      for dist in self.ordered_exp_distances:
+         try:
+            location = next(value for key, value in self.expand_dis_dir.items() if key == dist)
+            active_locations = [k for k in self.scouts_and_spots]
+
+            if location not in active_locations:
+               if unit_type == PROBE:
+                     for unit in self.units(PROBE):
+                        if unit.tag in self.scouts_and_spots:
+                           continue
+
+               await self.do(obs.move(location))
+               self.scouts_and_spots[obs.tag] = location
+               break
+         except Exception as e:
+            pass
+
       return
    
-   def random_location_variance(self, enemy_start_location):
-      x = enemy_start_location[0]
-      y = enemy_start_location[1]
+   def random_location_variance(self, location):
+      x = location[0]
+      y = location[1]
 
       x += random.randrange(-5, 5)
       y += random.randrange(-5, 5)
@@ -442,6 +485,15 @@ class MyBot(sc2.BotAI):
       del temp_array
       del temp_harass_array
 
+   def read_chat(self, msg):
+        if self.state.chat:
+            for chat in self.state.chat:
+               print('---------------------------------------------------------------------------message: {}'.format(msg))
+               print('---------------------------------------------------------------------------chat: {}'.format(chat))
+               return True if chat.message == msg else False
+        else:
+            return False
+
                
 
 
@@ -474,89 +526,28 @@ class MyBot(sc2.BotAI):
       await self.scout()
       await self.intel()
       await self.clean_up()
-      if self.iteration % 100 == 0:
-         print('Number of barracks: {}'.format(len(self.units(UnitTypeId.BARRACKS))))
+      #in on_step:
+      if self.read_chat("gg"):
+          await self._client.leave()
+      #if self.iteration % 100 == 0:
+      #   print('Number of barracks:
+      #   {}'.format(len(self.units(UnitTypeId.BARRACKS))))
       if self.iteration % 200 == 0:
          print('Number of harass force: {}'.format(len(self.harass_force_ids)))
          print('Number of main force: {}'.format(len(self.main_force_ids)))
+
+      if self.iteration % 300 == 0:
+         print('-----training data: {}'.format(self.train_data))
           
 def main():
    count = 0
-   while count != 50:
+   while count != 1:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
                realtime = False)
       count += 1
       print('---The count is: {}'.format(str(count)))
-   #run_game(sc2.maps.get("Sequencer LE"), [Bot(Race.Terran, MyBot()),
-   #   Bot(Race.Protoss, CannonRushBot())],
-   #        realtime = False)
+
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-
-
-
-      #async def scout(self):
-      ## {Distance to enmy start: expansion logic}
-      #self.expand_dis_dir = {}
-      #for el in self.expansion_locations:
-      #   distance_to_enemy_start = el.distance_to(self.enemy_start_location[0])
-      #   self.expand_dis_dir[distance_to_enemy_start] = el
-      #self.ordered_exp_distances = sorted(k for k in self.expand_dis_dir)
-
-      #existing_ids = [unit.tag for unit in self.units]
-      #to_be_removed = []
-      #for noted_scout in self.scouts_and_spots:
-      #   if noted_scout not in existing_ids:
-      #      to_be_removed.append(noted_scout)
-      #for scout in to_be_removed:
-      #   del self.scouts_and_spots[scout]
-
-      #if len(self.units(UnitTypeId.BARRACKS).ready) == 0:
-      #   UNIT_TYPE = UnitTypeId.SCV
-      #   unit_limit = 1
-      #else:
-      #   unit_type = UnitTypeId.MARINE
-      #   unit_limit = 5
-
-      #assign_scout = True
-
-      #if Unit_type == UnitTypeId.SCV:
-      #   for unit in self.units(UnitTypeId.SCV):
-      #      if unit.tag in self.scoutgs_and_spots:
-      #         assign_scout = False
-
-      #if assign_scout:
-      #   if len(self.units(unit_type).idle) > 0:
-      #      for su in self.units(unit_type).idle[:unit_limit]:
-      #         if su.tag not in self.scouts_and_spots:
-      #            for dist in self.ordered_exp_distances:
-      #               try:
-      #                  #location = next(value for KeyboardInterrupt, value in self.expand_dis_dir.items if key == dist)
-      #                  location = self.expand_dis_dir[dist]
-      #                  active_locations = [self.scounts_and_spots[k] for k in self.scouts_and_spots]
-      #                  if location not in active_locations:
-      #                     if unit_type == UnitTypeid.SCV:
-      #                        for unit in self.units(UnitTypeId.SCV):
-      #                           if unit.tag in self.scouts_and_spots:  
-      #                              continue
-      #                     await self.do_actions(su.move(location))
-      #                     self.scounts_and_spots[su.tag] = location
-      #                     break
-                              
-      #               except Exception as e:
-      #                  print(str(e))
-      #for su in self.units(unit_type):
-      #   if su.tag in self.scouts_and_spots:
-      #      if obs in [scv for scv in self.units(UnitTypeId.SCV)]:
-      #         await self.do(su.move(self.random_location_variance(self.scounts_and_spots[su.tag])))
-      #return
