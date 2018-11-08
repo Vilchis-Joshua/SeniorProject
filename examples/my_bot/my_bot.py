@@ -39,9 +39,7 @@ class MyBot(sc2.BotAI):
    """
    # Initialize
    def __init__(self, use_model=False):
-      # Gather the data
       self.train_data = []
-      #use the model to train the bot
       self.use_model = use_model
 
       self.do_something_after = 0
@@ -49,15 +47,14 @@ class MyBot(sc2.BotAI):
       self.scouts_and_spots = {}
       self.scv_scout = []
       self.enemy_expansions = []
-     
-
-      self.build_two_more_barracks = False
+      self.build_another_barrack = False
 
       #self.practice_group = ControlGroup()
       self.fill_harass_force = True
-      self.main_force_has_attacked = False
+      self.harass_force_has_attacked = False
       self.harass_force_ids = []
       self.main_force_ids = []
+      self.defence_units = []
       self.units_to_be_removed = []
 
       self.choices = { 0: self.do_nothing, 
@@ -65,10 +62,8 @@ class MyBot(sc2.BotAI):
                        2: self.attack_enemy_structure,
                        3: self.attack_enemy_start,
                        4: self.harass,
-                       5: self.build_marine,
-                       }
+                       5: self.build_marine,}
 
-      self.train_data = []
       if self.use_model:
          print('USING MODEL')
          self.model = keras.models.load_model("BasicCNN-10-epochs-0.0001-LR-STAGE2")
@@ -102,14 +97,13 @@ class MyBot(sc2.BotAI):
             return True
          else:
             return False
- 
-   
+      return
 
    async def build_supply_depots(self, cc):
       """
       This part will create the supply depots
       """
-      if self.iteration % 300 == 0 and self.units(UnitTypeId.SUPPLYDEPOT).ready.amount < 15:
+      if self.iteration % 50 == 0 and self.units(UnitTypeId.SUPPLYDEPOT).ready.amount < 20:
          if self.can_afford(UnitTypeId.SUPPLYDEPOT) and not self.units(UnitTypeId.SUPPLYDEPOT).exists:
             await self.build(UnitTypeId.SUPPLYDEPOT, near=cc.position.towards(self.game_info.map_center, 5))
          elif self.units(UnitTypeId.SUPPLYDEPOT).exists:
@@ -117,6 +111,7 @@ class MyBot(sc2.BotAI):
                if not self.already_pending(UnitTypeId.SUPPLYDEPOT):
                   await self.build(UnitTypeId.SUPPLYDEPOT, near=cc)
       return
+
    async def build_workers(self, cc):
       """
       Get up to the 18 miners.  This seems to not count the SCV being used to
@@ -128,26 +123,27 @@ class MyBot(sc2.BotAI):
                if self.units(UnitTypeId.SCV).amount < 19 and not self.already_pending(UnitTypeId.SCV) and self.units(UnitTypeId.COMMANDCENTER).ready.noqueue:
                   await self.do(cc.train(UnitTypeId.SCV))
       return
+
    async def create_barracks(self, cc):
       """
       Create barracks
       """
-      if self.can_afford(UnitTypeId.BARRACKS) and self.units(UnitTypeId.BARRACKS).amount < 3:
-         await self.build(UnitTypeId.BARRACKS, near=cc.position.towards(self.game_info.map_center, 10))
-      elif self.units(UnitTypeId.BARRACKS).ready.amount == 3:
-         if self.units(UnitTypeId.BARRACKS).ready.amount < 7:
+      if self.units(UnitTypeId.SUPPLYDEPOT).exists:
+         if self.can_afford(UnitTypeId.BARRACKS) and self.units(UnitTypeId.BARRACKS).amount < 3:
             await self.build(UnitTypeId.BARRACKS, near=cc.position.towards(self.game_info.map_center, 10))
+         elif self.units(UnitTypeId.BARRACKS).ready.amount > 3:
+            if self.units(UnitTypeId.BARRACKS).ready.amount < 7:
+               if self.build_another_barrack:
+                  self.build_another_barrack = False
+                  await self.build(UnitTypeId.BARRACKS, near=cc.position.towards(self.game_info.map_center, 10))
+               else:
+                  return
 
       #elif self.fill_harass_force == False:
       #   if self.can_afford(UnitTypeId.BARRACKS) and self.units(UnitTypeId.BARRACKS).amount < 5:
       #      await self.build(UnitTypeId.BARRACKS, near = cc.position.towards(self.game_info.map_center, 15))
       return
-   def upgrade_barracks(self, unit: Unit):
-      pass
 
-      pass
-   async def build_marauder(self):
-      pass
    async def build_refinery(self):
       """
       Just build 2 refineries for now. I can worry about building more later
@@ -165,6 +161,7 @@ class MyBot(sc2.BotAI):
                   if not self.units(UnitTypeId.REFINERY).closer_than(1.0, refinery).exists:
                      await self.do(worker.build(UnitTypeId.REFINERY, refinery))
       return
+
    async def build_marine(self):
       """
       Create marines for now. I Need to try and create the other units here too.
@@ -176,14 +173,16 @@ class MyBot(sc2.BotAI):
             else:
                await self.do(rax.train(UnitTypeId.MARINE))
       return
+
    async def lower_supply_depots(self):
       """
       This will raise the supply depots when necessary
       """
-      if self.units(UnitTypeId.SUPPLYDEPOT).exists and self.units(UnitTypeId.SUPPLYDEPOT).amount < 15:
+      if self.units(UnitTypeId.SUPPLYDEPOT).exists: 
          for depot in self.units(UnitTypeId.SUPPLYDEPOT).ready:
             await self.do(depot(AbilityId.MORPH_SUPPLYDEPOT_LOWER))
       return
+
    async def raise_supply_depot(self):
       """
       This will lower the supply depots when necessary
@@ -194,10 +193,12 @@ class MyBot(sc2.BotAI):
                   await self.do(depo(MORPH_SUPPLYDEPOT_RAISE))
                   break
       return
+
    async def expand(self):
       try:
          if self.units(UnitTypeId.COMMANDCENTER).amount < 2 and self.can_afford(UnitTypeId.COMMANDCENTER) and not self.already_pending(UnitTypeId.COMMANDCENTER):
-            await self.expand_now()
+            if self.units(UnitTypeId.BARRACKS).amount >= 2:
+               await self.expand_now()
       except Exception as e:
          print(str(e))
       #if self.units(UnitTypeId.COMMANDCENTER).amount < (self.iteration /
@@ -205,6 +206,7 @@ class MyBot(sc2.BotAI):
       #self.can_afford(UnitTypeId.COMMANDCENTER):
       #   await self.expand_now()
       return
+
    async def upgrade_to_orbital(self):
       """
       This function is for the purpose of creating the orbital command post
@@ -216,6 +218,7 @@ class MyBot(sc2.BotAI):
          if self.units(UnitTypeId.ORBITALCOMMAND).idle:
             await self.do(cc.first(AbilityId.UPGRADETOORBITAL_ORBITALCOMMAND))
       return
+
    def find_target(self, state):
       """
       This is not part of the asynchronous tasks
@@ -227,6 +230,7 @@ class MyBot(sc2.BotAI):
       else:
          return self.enemy_start_locations[0]
       return
+
    async def intel(self):
       game_data = np.zeros((self.game_info.map_size[1], self.game_info.map_size[0], 3), np.uint8)
 
@@ -248,14 +252,13 @@ class MyBot(sc2.BotAI):
       for enemy_unit in self.known_enemy_units:
          if not enemy_unit.is_structure:
             worker_names = ['probe',
-               'scv',
-               'drone']
+                            'scv',
+                            'drone']
             pos = enemy_unit.position
             if enemy_unit.name.lower() in worker_names:
                cv2.circle(game_data, (int(pos[0]), int(pos[1])), int(enemy_unit.radius * 8), (255, 255, 255), math.ceil(int(enemy_unit.radius * 0.5)))
             else:
                cv2.circle(game_data, (int(pos[0]), int(pos[1])), int(enemy_unit.radius * 8), (255, 255, 255), math.ceil(int(enemy_unit.radius * 0.5)))
-
 
          line_max = 50
          mineral_ratio = self.minerals / 1500
@@ -295,6 +298,7 @@ class MyBot(sc2.BotAI):
             cv2.imshow('Random', resized)
             cv2.waitKey(1)
       return
+
    async def scout(self):
 
       self.expand_dis_dir = {}
@@ -347,6 +351,7 @@ class MyBot(sc2.BotAI):
             pass
 
       return
+
    def random_location_variance(self, location):
       x = location[0]
       y = location[1]
@@ -365,24 +370,18 @@ class MyBot(sc2.BotAI):
 
       go_to = position.Point2(position.Pointlike((x,y)))
       return go_to
-   async def harass(self):
-      if len(self.units(UnitTypeId.MARINE)) and len(self.harass_force) == 10:
-         for hu in self.units(UnitTypeId.MARINE).idle:
-            self.harass_force.append(hu)
-         self.build_two_more_barracks = True
-      return
+
    async def defend(self):
       if len(self.known_enemy_units) > 0:
          target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
          for marine in self.units(UnitTypeId.MARINE):
             await self.do(marine.attack(target))
       return
+
    async def split_army(self):
-      if self.iteration % 1500 == 0:
-         self.fill_harass_force = True
       if self.units(UnitTypeId.MARINE).exists:
          for marine in self.units(UnitTypeId.MARINE): 
-            if len(self.harass_force_ids) < 10:
+            if len(self.harass_force_ids) < 10 and self.harass_force_has_attacked == False:
                if not marine.tag in self.harass_force_ids:
                   if not marine.tag in self.main_force_ids:
                      self.harass_force_ids.append(marine.tag)
@@ -390,31 +389,33 @@ class MyBot(sc2.BotAI):
                if not marine.tag in self.harass_force_ids:
                   if not marine.tag in self.main_force_ids:
                      self.main_force_ids.append(marine.tag)
-      if len(self.harass_force_ids) == 10:
-         self.fill_harass_force = False
+      #if len(self.harass_force_ids) == 10:
+      #   self.fill_harass_force = False
       return
+
    async def clean_up(self):
       temp_array = []
       temp_harass_array = self.harass_force_ids
       for marine in self.units(UnitTypeId.MARINE):
          temp_array.append(marine.tag)
 
-      if len(self.harass_force_ids) > 1:
+      if len(self.harass_force_ids) > 0:
          for unit_tag in temp_harass_array:
             if unit_tag not in temp_array:
                self.harass_force_ids.remove(unit_tag)
 
       del temp_array
       del temp_harass_array
+
    async def perform_task(self):
-      if self.time > self.do_something_after:
+      if self.iteration > self.do_something_after:
          if self.use_model:
             prediction = self.model.predict([self.flipped.reshape([-1, 176, 200, 3])])
             choice = np.argmax(prediction[0])
          else:
             choice = random.randrange(0, 6)
          try:
-            print('choice: {}'.format(choice))
+            #print('choice: {}'.format(choice))
             await self.choices[choice]()
          except Exception as e:
             print(str(e))
@@ -423,11 +424,13 @@ class MyBot(sc2.BotAI):
          y[choice] = 1
          self.train_data.append([y, self.flipped])    
       return
+
    async def do_nothing(self):
       #wait = random.randrange(7, 100)/100
       #self.do_something_after = self.time + wait
-      wait = random.randrange(10, 90)
+      wait = random.randrange(10, 60)
       self.do_something_after = self.iteration + wait
+
    async def attack_closest_to_cc(self):
       if len(self.known_enemy_units) > 0:
          target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
@@ -435,27 +438,32 @@ class MyBot(sc2.BotAI):
             if marine.tag in self.main_force_ids:
                await self.do(marine.attack(target))
       return
+
    async def attack_enemy_structure(self):
-      if len(self.known_enemy_structures) > 0:
+      if len(self.known_enemy_structures) > 0 and self.units(UnitTypeId.MARINE).amount:
          target = random.choice(self.known_enemy_structures)
          for marine in self.units(UnitTypeId.MARINE):
             if marine.tag in self.main_force_ids:
                await self.do(marine.attack(target))
       return
+
    async def attack_enemy_start(self):
-      if len(self.known_enemy_units) > 0:
+      if len(self.known_enemy_units) > 0 and self.units(UnitTypeId.MARINE).amount > 30:
          target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
          for marine in self.units(UnitTypeId.MARINE):
             for unit_tag in self.main_force_ids:
                if marine.tag == unit_tag:
                   await self.do(marine.attack(target))
       return
+
    async def harass(self):
-      if len(self.harass_force_ids) >= 10:
-         target = self.enemy_start_locations[0]
-         for marine in self.units(UnitTypeId.MARINE):
-            if marine.tag in self.harass_force_ids:
-               await self.do(unit.attack(target))
+      if self.harass_force_has_attacked == False:
+         if len(self.harass_force_ids) >= 10:
+            target = self.enemy_start_locations[0]
+            self.harass_force_has_attacked = True
+            for marine in self.units(UnitTypeId.MARINE):
+               if marine.tag in self.harass_force_ids:
+                  await self.do(marine.attack(target))
       return
 
 
@@ -480,26 +488,32 @@ class MyBot(sc2.BotAI):
       await self.expand()
       await self.perform_task()
       #await self.defend()
-
+      await self.create_barracks(cc)
 
       #await self.upgrade_to_orbital()
       await self.build_supply_depots(cc)
       await self.build_workers(cc)
-      #await self.put_miners_to_work(cc)
-      await self.create_barracks(cc)
-      #await self.build_refinery()
-      #await self.build_offensive_force()
-      #await self.attack()
       await self.lower_supply_depots()              #Only works on one supplydepot
       await self.intel()
 
-      if self.iteration % 200 == 0:
+      #await self.put_miners_to_work(cc)
+      #await self.create_barracks(cc)
+      #await self.build_refinery()
+      #await self.build_offensive_force()
+      #await self.attack()
+
+      if self.iteration % 500 == 0:
+         self.harass_force_has_attacked = False
+
+      if self.iteration % 400 == 0:
+         self.build_another_barrack = True
+      if self.iteration % 50 == 0:
          print('Number of harass force: {}'.format(len(self.harass_force_ids)))
          print('Number of main force: {}'.format(len(self.main_force_ids)))
           
 def main():
    count = 0
-   while count != 1:
+   while count != 10:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
