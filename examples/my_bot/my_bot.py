@@ -275,9 +275,10 @@ class MyBot(sc2.BotAI):
 
          plausible_supply = self.supply_cap / 200.0
 
-         worker_weight = len(self.units(PROBE)) / (self.supply_cap-self.supply_left)
-         if worker_weight > 1.0:
-            worker_weight = 1.0
+         if self.supply_cap-self.supply_left != 0:
+            worker_weight = len(self.units(PROBE)) / (self.supply_cap-self.supply_left)
+            if worker_weight > 1.0:
+               worker_weight = 1.0
 
          cv2.line(game_data, (0, 19), (int(line_max*worker_weight), 19), (250, 250, 200), 3)  # worker/supply ratio
          cv2.line(game_data, (0, 15), (int(line_max*plausible_supply), 15), (220, 200, 200), 3)  # plausible supply (supply/200.0)
@@ -457,15 +458,14 @@ class MyBot(sc2.BotAI):
       return
 
    async def harass(self):
-      if self.harass_force_has_attacked == False:
-         if len(self.harass_force_ids) >= 10:
-            target = self.enemy_start_locations[0]
-            self.harass_force_has_attacked = True
-            for marine in self.units(UnitTypeId.MARINE):
-               if marine.tag in self.harass_force_ids:
-                  await self.do(marine.attack(target))
+      #if self.harass_force_has_attacked == False:
+      if len(self.harass_force_ids) >= 10:
+         target = self.enemy_start_locations[0]
+         #self.harass_force_has_attacked = True
+         for marine in self.units(UnitTypeId.MARINE):
+            if marine.tag in self.harass_force_ids:
+               await self.do(marine.attack(target))
       return
-
 
    async def on_step(self, iteration):
       cc = self.units(UnitTypeId.COMMANDCENTER)
@@ -502,18 +502,18 @@ class MyBot(sc2.BotAI):
       #await self.build_offensive_force()
       #await self.attack()
 
-      if self.iteration % 500 == 0:
-         self.harass_force_has_attacked = False
+      #if self.iteration % 500 == 0:
+      #   self.harass_force_has_attacked = False
 
       if self.iteration % 400 == 0:
          self.build_another_barrack = True
-      if self.iteration % 50 == 0:
-         print('Number of harass force: {}'.format(len(self.harass_force_ids)))
-         print('Number of main force: {}'.format(len(self.main_force_ids)))
+      #if self.iteration % 50 == 0:
+      #   print('Number of harass force: {}'.format(len(self.harass_force_ids)))
+      #   print('Number of main force: {}'.format(len(self.main_force_ids)))
           
 def main():
    count = 0
-   while count != 10:
+   while count != 100:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],

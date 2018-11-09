@@ -7,14 +7,10 @@ import random
 import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-
-
-
-
 model = Sequential()
 
-model.add(Conv2D(32, (7, 7), padding='same',
-                 input_shape=(176, 200, 1),
+model.add(Conv2D(32, (3,3), padding='same',
+                 input_shape=(184, 208, 1),
                  activation='relu'))
 model.add(Conv2D(32, (3, 3), activation='relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -57,13 +53,13 @@ def check_data(choices):
     print("Total data length now is:", total_data)
     return lengths
 
-train_data_dir = 'train_data'
+train_data_dir = 'train_data/easy'
 #train_data_dir = 'C:/Users/joshs/Desktop/DataFolder/train_data'
 hm_epochs = 10
 
 for i in range(hm_epochs):
    current = 0
-   increment = 200
+   increment = 10
    not_maximum = True
    all_files = os.listdir(train_data_dir)
    maximum = len(all_files)
@@ -136,13 +132,15 @@ for i in range(hm_epochs):
       random.shuffle(train_data)
       print(len(train_data))
 
-      test_size = 100
-      batch_size = 1
+      test_size = 10
+      batch_size = 60
 
-      x_train = np.array([i[1] for i in train_data[:-test_size]]).reshape(-1, 176, 200, 1)
+      x_train = np.array([i[1] for i in train_data[:-test_size]]).reshape(-1, 184, 208, 1)
       y_train = np.array([i[0] for i in train_data[:-test_size]])
+      print('--------x train: {}'.format(x_train.shape))
+      print('--------y train: {}'.format(y_train.shape))
 
-      x_test = np.array([i[1] for i in train_data[-test_size:]]).reshape(-1, 176, 200, 1)
+      x_test = np.array([i[1] for i in train_data[-test_size:]]).reshape(-1, 184, 208, 1)
       y_test = np.array([i[0] for i in train_data[-test_size:]])
 
       model.fit(x_train, y_train,
