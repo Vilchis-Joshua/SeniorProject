@@ -15,6 +15,9 @@ from typing import List
 import time
 import cv2
 import os
+import tensorboard as tf
+import keras 
+from keras import models
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ["SC2PATH"] = 'C:\Program Files (x86)\StarCraft II'
@@ -66,7 +69,7 @@ class MyBot(sc2.BotAI):
 
       if self.use_model:
          print('USING MODEL')
-         self.model = keras.models.load_model("BasicCNN-10-epochs-0.0001-LR-STAGE2")
+         self.model = keras.models.load_model("BasicCNN-1000-epochs-0.001-LR-STAGE2")
       return
 
    def on_end(self, game_result):
@@ -77,19 +80,17 @@ class MyBot(sc2.BotAI):
       print(game_result)
 
        #This is for training
-      if game_result == Result.Victory:
-         np.save("train_data/easy/{}.npy".format(str(int(time.time()))),
-         np.array(self.train_data))
-      return
-
+      #if game_result == Result.Victory:
+      #   np.save("train_data/easy/{}.npy".format(str(int(time.time()))),
+      #   np.array(self.train_data))
    # =======================================================================================
-   # THIS MAY BE IMPORTANT
-      #with open('gameout-random-vs-easy.txt', 'a') as f:
-      #   if self.use_model:
-      #      f.writelines('Model {}\n'.format(game_result))
-      #   else:
-      #      f.write('Random {}\n'.format(game_result))
-      #return
+   # This is for saving model results
+      with open('gameout-random-vs-easy1.txt', 'a') as f:
+         if self.use_model:
+            f.writelines('Model {}\n'.format(game_result))
+         else:
+            f.write('Random {}\n'.format(game_result))
+      return
 
    def is_first_barracks_built(self):
       if self.units(UnitTypeId.BARRACKS).ready:
@@ -411,8 +412,9 @@ class MyBot(sc2.BotAI):
    async def perform_task(self):
       if self.iteration > self.do_something_after:
          if self.use_model:
-            prediction = self.model.predict([self.flipped.reshape([-1, 176, 200, 3])])
+            prediction = self.model.predict([self.flipped.reshape([-1, 184, 208, 3])])
             choice = np.argmax(prediction[0])
+            print('model choice: {}'.format(choice))
          else:
             choice = random.randrange(0, 6)
          try:

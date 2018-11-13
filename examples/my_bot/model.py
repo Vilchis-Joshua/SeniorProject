@@ -1,30 +1,119 @@
 import keras
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Flatten, Activation
 from keras.callbacks import TensorBoard
 import os
 import random
 import numpy as np
+import time
+from tensorflow.keras.callbacks import TensorBoard
+
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+#NAME = 'terran-ai-bot-{}'.format(int(time.time()))
+
+
+#dense_layers = [0,1,2]
+#layer_sizes = [32, 64, 128]
+#conv_layers = [1, 2, 3]
+
+#for dense_layer in dense_layers:
+#   for layer_size in layer_sizes:
+#      for conv_layer in conv_layers:
+#         NAME = '{}-conv-{}-nodes-{}-dense-{}-time'.format(conv_layer_size, layer_size, dense_layer, int(time.time()))
+
+#         model = Sequential()
+#         model.add(Conv2D(32, (3,3), padding='same',
+#                          input_shape=(184, 208, 3),
+#                          activation='relu'))
+
+#         model.add(Conv2D(32, (3,3), padding='same',
+#                          input_shape=(184, 208, 3),
+#                          activation='relu'))
+#         model.add(Conv2D(32, (3, 3), activation='relu'))
+#         model.add(MaxPooling2D(pool_size=(2, 2)))
+#         model.add(Dropout(0.2))
+
+#         model.add(Conv2D(64, (3, 3), padding='same',
+#                          activation='relu'))
+#         model.add(Conv2D(32, (3, 3), activation='relu'))
+#         model.add(MaxPooling2D(pool_size=(2, 2)))
+#         model.add(Dropout(0.2))
+
+#         model.add(Conv2D(64, (3, 3), padding='same',
+#                          activation='relu'))
+#         model.add(Conv2D(128, (3, 3), activation='relu'))
+#         model.add(MaxPooling2D(pool_size=(2, 2)))
+#         model.add(Dropout(0.2))
+
+#         model.add(Flatten())
+#         model.add(Dense(128, activation='relu'))
+#         model.add(Dropout(0.5))
+#         model.add(Dense(6, activation='softmax'))
+#         learning_rate = 0.001
+#         opt = keras.optimizers.adam(lr=learning_rate, decay = 1e-6)
+#         model.compile(loss='categorical_crossentropy',
+#                       optimizer=opt,
+#                       metrics=['accuracy'])
+#tensorboard = TensorBoard(log_dir='logs/{}'.format(NAME))
+
+
+#model = Sequential()
+#model.add(Conv2D(32, (3,3), padding='same',
+#                 input_shape=(184, 208, 3),
+#                 activation='relu'))
+
+#model.add(Conv2D(32, (3,3), padding='same',
+#                 input_shape=(184, 208, 3),
+#                 activation='relu'))
+#model.add(Conv2D(32, (3, 3), activation='relu'))
+#model.add(MaxPooling2D(pool_size=(2, 2)))
+#model.add(Dropout(0.2))
+
+#model.add(Conv2D(64, (3, 3), padding='same',
+#                 activation='relu'))
+#model.add(Conv2D(32, (3, 3), activation='relu'))
+#model.add(MaxPooling2D(pool_size=(2, 2)))
+#model.add(Dropout(0.2))
+
+#model.add(Conv2D(64, (3, 3), padding='same',
+#                 activation='relu'))
+#model.add(Conv2D(128, (3, 3), activation='relu'))
+#model.add(MaxPooling2D(pool_size=(2, 2)))
+#model.add(Dropout(0.2))
+
+#model.add(Flatten())
+#model.add(Dense(128, activation='relu'))
+#model.add(Dropout(0.5))
+#model.add(Dense(6, activation='softmax'))
+#learning_rate = 0.001
+#opt = keras.optimizers.adam(lr=learning_rate, decay = 1e-6)
+#model.compile(loss='categorical_crossentropy',
+#              optimizer=opt,
+#              metrics=['accuracy'])
+#tensorboard = TensorBoard(log_dir='logs/stage1')
+
+
+
+
+
 model = Sequential()
-
-model.add(Conv2D(32, (3,3), padding='same',
-                 input_shape=(184, 208, 1),
+model.add(Conv2D(16, (2,2), padding='same',
+                 input_shape=(184, 208, 3),
                  activation='relu'))
-model.add(Conv2D(32, (3, 3), activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Dropout(0.2))
 
-model.add(Conv2D(64, (3, 3), padding='same',
-                 activation='relu'))
-model.add(Conv2D(64, (3, 3), activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Dropout(0.2))
 
-model.add(Conv2D(128, (3, 3), padding='same',
-                 activation='relu'))
-model.add(Conv2D(128, (3, 3), activation='relu'))
+model.add(Conv2D(16, (2,2), activation='relu'))
+model.add(Conv2D(64, (2,2), activation='relu'))
+model.add(MaxPooling2D(pool_size=(4,4)))
+model.add(Dropout(0.3))
+
+model.add(Conv2D(64, (2,2), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2,2)))
+model.add(Dropout(0.4))
+
+model.add(Conv2D(256, (2,2), activation='relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.2))
 
@@ -32,14 +121,12 @@ model.add(Flatten())
 model.add(Dense(1024, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(6, activation='softmax'))
-learning_rate = 0.001
+learning_rate = 0.00001
 opt = keras.optimizers.adam(lr=learning_rate, decay = 1e-6)
 model.compile(loss='categorical_crossentropy',
               optimizer=opt,
               metrics=['accuracy'])
 tensorboard = TensorBoard(log_dir='logs/stage1')
-
-
 
 def check_data(choices):
     total_data = 0
@@ -55,18 +142,18 @@ def check_data(choices):
 
 train_data_dir = 'train_data/easy'
 #train_data_dir = 'C:/Users/joshs/Desktop/DataFolder/train_data'
-hm_epochs = 10
+hm_epochs = 5
 
 for i in range(hm_epochs):
    current = 0
-   increment = 10
+   increment = 2
    not_maximum = True
    all_files = os.listdir(train_data_dir)
    maximum = len(all_files)
    random.shuffle(all_files)
 
    while not_maximum:
-      print("WORKING ON {}:{}".format(current, current + increment))
+      print("WORKING ON {}:{}, EPOCH:{}".format(current, current+increment, i))
       #no_attacks = []
       #attack_closest_to_nexus = []
       #attack_enemy_structures = []
@@ -132,16 +219,15 @@ for i in range(hm_epochs):
       random.shuffle(train_data)
       print(len(train_data))
 
-      test_size = 10
-      batch_size = 60
+      test_size = 20
+      batch_size = 40
 
-      x_train = np.array([i[1] for i in train_data[:-test_size]]).reshape(-1, 184, 208, 1)
+      x_train = np.array([i[1] for i in train_data[:-test_size]]).reshape(-1, 184, 208, 3)
       y_train = np.array([i[0] for i in train_data[:-test_size]])
-      print('--------x train: {}'.format(x_train.shape))
-      print('--------y train: {}'.format(y_train.shape))
 
-      x_test = np.array([i[1] for i in train_data[-test_size:]]).reshape(-1, 184, 208, 1)
-      y_test = np.array([i[0] for i in train_data[-test_size:]])
+      x_test = np.array([i[1] for i in train_data[-test_size:]]).reshape(-1, 184, 208, 3)
+      y_test = np.array([i[0] for i in train_data[-test_size:]])     
+
 
       model.fit(x_train, y_train,
                batch_size=batch_size,
@@ -150,7 +236,8 @@ for i in range(hm_epochs):
                verbose=1,
               callbacks=[tensorboard])
 
-      model.save("BasicCNN-{}-epochs-{}-LR-STAGE1".format(hm_epochs, learning_rate))
+      model.save("BasicCNN-{}-epochs-{}-LR-STAGE2".format(hm_epochs, learning_rate))
       current += increment
       if current > maximum:
          not_maximum = False
+
