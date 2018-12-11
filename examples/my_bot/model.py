@@ -1,3 +1,4 @@
+
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Flatten, Activation
@@ -99,29 +100,30 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 model = Sequential()
-model.add(Conv2D(16, (2,2), padding='same',
+model.add(Conv2D(32, (4,4), padding='same',
                  input_shape=(184, 208, 3),
                  activation='relu'))
 
 
-model.add(Conv2D(16, (2,2), activation='relu'))
-model.add(Conv2D(64, (2,2), activation='relu'))
+model.add(Conv2D(16, (4,4), activation='relu'))
+model.add(Conv2D(32, (4,4), activation='relu'))
 model.add(MaxPooling2D(pool_size=(4,4)))
-model.add(Dropout(0.3))
+model.add(Dropout(0.5))
 
-model.add(Conv2D(64, (2,2), activation='relu'))
+model.add(Conv2D(32, (4,4), activation='relu'))
+model.add(Conv2D(64, (4,4), activation='relu'))
 model.add(MaxPooling2D(pool_size=(2,2)))
-model.add(Dropout(0.4))
-
-model.add(Conv2D(256, (2,2), activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.2))
+
+model.add(Conv2D(256, (4,4), activation='relu'))
+model.add(MaxPooling2D(pool_size=(4, 4)))
+model.add(Dropout(0.7))
 
 model.add(Flatten())
 model.add(Dense(1024, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(6, activation='softmax'))
-learning_rate = 0.00001
+learning_rate = 0.00002
 opt = keras.optimizers.adam(lr=learning_rate, decay = 1e-6)
 model.compile(loss='categorical_crossentropy',
               optimizer=opt,
@@ -219,8 +221,8 @@ for i in range(hm_epochs):
       random.shuffle(train_data)
       print(len(train_data))
 
-      test_size = 20
-      batch_size = 40
+      test_size = 30
+      batch_size = 60
 
       x_train = np.array([i[1] for i in train_data[:-test_size]]).reshape(-1, 184, 208, 3)
       y_train = np.array([i[0] for i in train_data[:-test_size]])
@@ -236,7 +238,7 @@ for i in range(hm_epochs):
                verbose=1,
               callbacks=[tensorboard])
 
-      model.save("BasicCNN-{}-epochs-{}-LR-STAGE2".format(hm_epochs, learning_rate))
+      model.save("models/BasicCNN-{}-epochs-{}-LR-STAGE2".format(hm_epochs, learning_rate))
       current += increment
       if current > maximum:
          not_maximum = False
