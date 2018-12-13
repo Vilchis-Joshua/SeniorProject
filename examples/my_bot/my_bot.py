@@ -204,6 +204,9 @@ class MyBot(sc2.BotAI):
          if self.units(UnitTypeId.COMMANDCENTER).amount < 2 and self.can_afford(UnitTypeId.COMMANDCENTER) and not self.already_pending(UnitTypeId.COMMANDCENTER):
             if self.units(UnitTypeId.BARRACKS).amount >= 2:
                await self.expand_now()
+         elif self.units(UnitTypeId.COMMANDCENTER).amount == 2 and self.can_afford(UnitTypeId.COMMANDCENTER) and not self.already_pending(UnitTypeId.COMMANDCENTER):
+            if self.units(UnitTypeId.BARRACKS).ready.amount > 4:
+               await self.expand_now()
       except Exception as e:
          print(str(e))
       #if self.units(UnitTypeId.COMMANDCENTER).amount < (self.iteration /
@@ -581,7 +584,7 @@ class MyBot(sc2.BotAI):
           
 def main():
    count = 0
-   while count != 1:
+   while count != 100:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
