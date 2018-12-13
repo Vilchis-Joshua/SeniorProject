@@ -36,7 +36,7 @@ class MyBot(sc2.BotAI):
      X 8) Create a factory <-------------------- This is still not done
                   though.  I need to figure out a better way to get it working in sync.  I
                   can just build the factory I think.
-      9) Create x number of marauder and y number of helion
+      9) Create x number of marauder and y number of hellion
       10) When 200 supply cap reached, it will then attack in full force
       11) Repeat strategy
    """
@@ -65,7 +65,7 @@ class MyBot(sc2.BotAI):
                        3: self.attack_enemy_start,
                        4: self.harass,
                        5: self.build_marine,
-                       6: self.build_helion,}
+                       6: self.build_hellion,}
 
       if self.use_model:
          print('USING MODEL')
@@ -105,7 +105,7 @@ class MyBot(sc2.BotAI):
       """
       This part will create the supply depots
       """
-      if self.iteration % 50 == 0 and self.units(UnitTypeId.SUPPLYDEPOT).ready.amount < 20:
+      if self.iteration % 50 == 0 and self.units(UnitTypeId.SUPPLYDEPOT).ready.amount < 30:
          if self.can_afford(UnitTypeId.SUPPLYDEPOT) and not self.units(UnitTypeId.SUPPLYDEPOT).exists:
             await self.build(UnitTypeId.SUPPLYDEPOT, near=cc.position.towards(self.game_info.map_center, 5))
          elif self.units(UnitTypeId.SUPPLYDEPOT).exists:
@@ -205,8 +205,12 @@ class MyBot(sc2.BotAI):
             if self.units(UnitTypeId.BARRACKS).amount >= 2:
                await self.expand_now()
          elif self.units(UnitTypeId.COMMANDCENTER).amount == 2 and self.can_afford(UnitTypeId.COMMANDCENTER) and not self.already_pending(UnitTypeId.COMMANDCENTER):
-            if self.units(UnitTypeId.BARRACKS).ready.amount > 4:
+            if self.units(UnitTypeId.BARRACKS).amount > 4:
                await self.expand_now()
+         elif self.units(UnitTypeId.COMMANDCENTER).amount >= 3:
+            return
+         else:
+            return
       except Exception as e:
          print(str(e))
       #if self.units(UnitTypeId.COMMANDCENTER).amount < (self.iteration /
@@ -393,15 +397,16 @@ class MyBot(sc2.BotAI):
             if not marine.tag in self.harass_force_ids:
                if not marine.tag in self.defence_unit_ids:
                   if not marine.tag in self.main_force_ids:
-                     if len(self.harass_force_ids) <= 10:
+                     if len(self.harass_force_ids) <= 20:
                         self.harass_force_ids.append(marine.tag)
-                        print('harass length: {}'.format(len(self.harass_force_ids)))
-                     elif len(self.main_force_ids) <= 30:
+                     elif len(self.main_force_ids) <= 50:
                         self.main_force_ids.append(marine.tag)
-                        print('main length: {}'.format(len(self.main_force_ids)))
                      else:
                         self.defence_unit_ids.append(marine.tag)
-                        print('defensive length: {}'.format(len(self.defence_unit_ids)))
+      if self.units(UnitTypeId.HELLION).exists:
+         for unit in self.units(UnitTypeId.HELLION):
+            if not unit.tag in self.main_force_ids:
+               self.main_force_ids.append(unit.tag)
 
 
       #if self.units(UnitTypeId.MARINE).exists:
@@ -472,32 +477,41 @@ class MyBot(sc2.BotAI):
       self.do_something_after = self.iteration + wait
 
    async def attack_closest_to_cc(self):
-      if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 30:
+      if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 40:
          target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
          for marine in self.units(UnitTypeId.MARINE):
             if marine.tag in self.main_force_ids:
                await self.do(marine.attack(target))
+         for unit in self.units(UnitTypeId.HELLION):
+            if unit.tag in self.main_force_ids:
+               await self.do(unit.attack(target))
       return
 
    async def attack_enemy_structure(self):
-      if len(self.known_enemy_structures) > 0 and len(self.main_force_ids) >= 30:
+      if len(self.known_enemy_structures) > 0 and len(self.main_force_ids) >= 40:
          target = random.choice(self.known_enemy_structures)
          for marine in self.units(UnitTypeId.MARINE):
             if marine.tag in self.main_force_ids:
                await self.do(marine.attack(target))
+         for unit in self.units(UnitTypeId.HELLION):
+            if unit.tag in self.main_force_ids:
+               await self.do(unit.attack(target))
       return
 
    async def attack_enemy_start(self):
-      if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 30:
+      if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 40:
          target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
          for marine in self.units(UnitTypeId.MARINE):
             for unit_tag in self.main_force_ids:
                if marine.tag == unit_tag:
                   await self.do(marine.attack(target))
+         for unit in self.units(UnitTypeId.HELLION):
+            if unit.tag in self.main_force_ids:
+               await self.do(unit.attack(target))
       return
 
    async def harass(self):
-      if len(self.harass_force_ids) >= 10 and self.can_harass == True:
+      if len(self.harass_force_ids) >= 20 and self.can_harass == True:
          self.can_harass = False
          target = self.enemy_start_locations[0]
          """
@@ -506,8 +520,8 @@ class MyBot(sc2.BotAI):
          for marine in self.units(UnitTypeId.MARINE):
             if marine.tag in self.harass_force_ids:
                   await self.do(marine.attack(target))
-         # Helions attack
-         for hel in self.units(UnitTypeId.HELION):
+         # Hellions attack
+         for hel in self.units(UnitTypeId.HELLION):
             if hel.tag in self.harass_force_ids:
                await self.do(hel.attack(target))
       return
@@ -523,14 +537,15 @@ class MyBot(sc2.BotAI):
          if self.units(UnitTypeId.FACTORY).amount < 2:
             await self.build(UnitTypeId.FACTORY, near=cc.position.towards(self.game_info.map_center, 10))
 
-   async def build_helion(self):
+   async def build_hellion(self):
       for f in self.units(UnitTypeId.FACTORY).ready.noqueue:
          while self.supply_left > 4:
-            if not self.can_afford(UnitTypeId.HELION):
+            if not self.can_afford(UnitTypeId.HELLION):
                break
             else:
-               await self.do(f.train(UnitTypeId.HELION))
+               await self.do(f.train(UnitTypeId.HELLION))
       return
+
    async def on_step(self, iteration):
       cc = self.units(UnitTypeId.COMMANDCENTER)
       if not cc.exists:
