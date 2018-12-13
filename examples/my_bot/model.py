@@ -122,7 +122,7 @@ model.add(Dropout(0.7))
 model.add(Flatten())
 model.add(Dense(1024, activation='relu'))
 model.add(Dropout(0.5))
-model.add(Dense(6, activation='softmax'))
+model.add(Dense(7, activation='softmax'))
 learning_rate = 0.00002
 opt = keras.optimizers.adam(lr=learning_rate, decay = 1e-6)
 model.compile(loss='categorical_crossentropy',
@@ -167,6 +167,7 @@ for i in range(hm_epochs):
                  3: [],
                  4: [],
                  5: [],
+                 6: [],
                  }
 
 
