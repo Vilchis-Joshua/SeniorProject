@@ -1,4 +1,3 @@
-
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, Flatten, Activation
@@ -122,7 +121,7 @@ model.add(Dropout(0.7))
 model.add(Flatten())
 model.add(Dense(1024, activation='relu'))
 model.add(Dropout(0.5))
-model.add(Dense(7, activation='softmax'))
+model.add(Dense(11, activation='softmax'))
 learning_rate = 0.00002
 opt = keras.optimizers.adam(lr=learning_rate, decay = 1e-6)
 model.compile(loss='categorical_crossentropy',
@@ -168,6 +167,10 @@ for i in range(hm_epochs):
                  4: [],
                  5: [],
                  6: [],
+                 7: [],
+                 8: [],
+                 9: [],
+                 10: []
                  }
 
 
@@ -222,8 +225,10 @@ for i in range(hm_epochs):
       random.shuffle(train_data)
       print(len(train_data))
 
-      test_size = 30
-      batch_size = 60
+      #test_size = 30
+      #batch_size = 60
+      test_size = 10
+      batch_size = 30
 
       x_train = np.array([i[1] for i in train_data[:-test_size]]).reshape(-1, 184, 208, 3)
       y_train = np.array([i[0] for i in train_data[:-test_size]])

@@ -21,7 +21,6 @@ from keras import models
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ["SC2PATH"] = 'C:\Program Files (x86)\StarCraft II'
-HEADLESS = False
 class MyBot(sc2.BotAI):
 
    """   
@@ -65,7 +64,11 @@ class MyBot(sc2.BotAI):
                        3: self.attack_enemy_start,
                        4: self.harass,
                        5: self.build_marine,
-                       6: self.build_hellion,}
+                       6: self.build_hellion,
+                       7: self.create_barracks,
+                       8: self.create_factory,
+                       9: self.build_refinery,
+                       10: self.build_supply_depots,}
 
       if self.use_model:
          print('USING MODEL')
@@ -101,10 +104,18 @@ class MyBot(sc2.BotAI):
             return False
       return
 
-   async def build_supply_depots(self, cc):
+   async def build_supply_depots(self):
       """
       This part will create the supply depots
       """
+      cc = self.units(UnitTypeId.COMMANDCENTER)
+      if not cc.exists:
+         target = self.known_enemy_structures.random_or(self.enemy_start_locations[0]).position
+         for unit in self.workers | self.units(UnitTypeId.MARINE):
+            await self.do(unit.attack(target))
+         return
+      else:
+         cc = cc.first
       if self.iteration % 50 == 0 and self.units(UnitTypeId.SUPPLYDEPOT).ready.amount < 30:
          if self.can_afford(UnitTypeId.SUPPLYDEPOT) and not self.units(UnitTypeId.SUPPLYDEPOT).exists:
             await self.build(UnitTypeId.SUPPLYDEPOT, near=cc.position.towards(self.game_info.map_center, 5))
@@ -126,10 +137,18 @@ class MyBot(sc2.BotAI):
                   await self.do(cc.train(UnitTypeId.SCV))
       return
 
-   async def create_barracks(self, cc):
+   async def create_barracks(self):
       """
       Create barracks
       """
+      cc = self.units(UnitTypeId.COMMANDCENTER)
+      if not cc.exists:
+         target = self.known_enemy_structures.random_or(self.enemy_start_locations[0]).position
+         for unit in self.workers | self.units(UnitTypeId.MARINE):
+            await self.do(unit.attack(target))
+         return
+      else:
+         cc = cc.first
       if self.units(UnitTypeId.SUPPLYDEPOT).exists:
          if self.can_afford(UnitTypeId.BARRACKS) and self.units(UnitTypeId.BARRACKS).amount < 3:
             await self.build(UnitTypeId.BARRACKS, near=cc.position.towards(self.game_info.map_center, 10))
@@ -303,13 +322,12 @@ class MyBot(sc2.BotAI):
       self.flipped = cv2.flip(game_data, 0)
       resized = cv2.resize(self.flipped, dsize=None, fx=2, fy=2)
 
-      if not HEADLESS: 
-         if self.use_model:
-            cv2.imshow('Model Intel', resized)
-            cv2.waitKey(1)
-         else:
-            cv2.imshow('Random', resized)
-            cv2.waitKey(1)
+      if self.use_model:
+         cv2.imshow('Model Intel', resized)
+         cv2.waitKey(1)
+      else:
+         cv2.imshow('Random', resized)
+         cv2.waitKey(1)
       return
 
    async def scout(self):
@@ -428,6 +446,7 @@ class MyBot(sc2.BotAI):
       temp_harass_array = self.harass_force_ids
       for marine in self.units(UnitTypeId.MARINE):
          temp_array.append(marine.tag)
+      #temp_array = [m.tag in m for ]
 
       if len(self.harass_force_ids) > 0:
          for unit_tag in temp_harass_array:
@@ -451,13 +470,39 @@ class MyBot(sc2.BotAI):
       return
 
    async def perform_task(self):
-      if self.iteration > self.do_something_after:
+      #if self.iteration > self.do_something_after:
+         #if self.use_model:
+         #   prediction = self.model.predict([self.flipped.reshape([-1, 184, 208, 3])])
+         #   choice = np.argmax(prediction[0])
+         #   print('model choice: {}'.format(choice))
+         #else:
+         #   choice = random.randrange(0, 7)
+      if self.current_time > self.do_something_after:
          if self.use_model:
-            prediction = self.model.predict([self.flipped.reshape([-1, 184, 208, 3])])
-            choice = np.argmax(prediction[0])
-            print('model choice: {}'.format(choice))
+               marine_weight = 2.2
+               hellion_weight = 1.1
+               factory_weight = 1.1
+               barracks_weight = 1.5
+               supply_depot_weight = 2
+               refinery_weight = 1.3
+               supply_depot_weight = 2.5
+
+               prediction = self.model.predict([self.flipped.reshape([-1, 184, 208, 3])])
+               weights = [1, 1, 1, 1, 1, marine_weight, hellion_weight, barracks_weight, factory_weight, refinery_weight, supply_depot_weight]
+               weighted_prediction = prediction[0]*weights
+               choice = np.argmax(weighted_prediction)
+               print('Choice:',self.choices[choice])
          else:
-            choice = random.randrange(0, 7)
+               marine_weight = 13
+               hellion_weight = 14
+               barracks_weight = 8
+               supply_depot_weight = 10
+               refinery_weight = 5
+               factory_weight = 9
+               supply_depot_weight = 20
+
+               choice_weights = 1*[0] + 1*[1] + 1*[2] + 1*[3] + 1*[4] + marine_weight*[5] + hellion_weight*[6] + barracks_weight*[7]+factory_weight*[8]+refinery_weight*[9]+supply_depot_weight*[10]
+               choice = random.choice(choice_weights)
 
          try:
             #print('choice: {}'.format(choice))
@@ -465,16 +510,18 @@ class MyBot(sc2.BotAI):
          except Exception as e:
             print(str(e))
          
-         y = np.zeros(7)
+         y = np.zeros(11)
          y[choice] = 1
-         self.train_data.append([y, self.flipped])    
+         self.train_data.append([y, self.flipped])   
       return
 
    async def do_nothing(self):
+      wait = random.randrange(10, 90) / 100
+      self.do_something_after = self.current_time + wait
       #wait = random.randrange(7, 100)/100
       #self.do_something_after = self.time + wait
-      wait = random.randrange(10, 60)
-      self.do_something_after = self.iteration + wait
+      #wait = random.randrange(10, 60)
+      #self.do_something_after = self.iteration + wait
 
    async def attack_closest_to_cc(self):
       if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 40:
@@ -532,7 +579,15 @@ class MyBot(sc2.BotAI):
             await self.do(marine.move(self.start_location[1]).position)
       return
 
-   async def create_factory(self, cc):
+   async def create_factory(self):
+      cc = self.units(UnitTypeId.COMMANDCENTER)
+      if not cc.exists:
+         target = self.known_enemy_structures.random_or(self.enemy_start_locations[0]).position
+         for unit in self.workers | self.units(UnitTypeId.MARINE):
+            await self.do(unit.attack(target))
+         return
+      else:
+         cc = cc.first
       if self.units(UnitTypeId.BARRACKS).ready.amount >= 2:
          if self.units(UnitTypeId.FACTORY).amount < 2:
             await self.build(UnitTypeId.FACTORY, near=cc.position.towards(self.game_info.map_center, 10))
@@ -556,9 +611,11 @@ class MyBot(sc2.BotAI):
       else:
          cc = cc.first
 
+
+      #self.time = (self.state.game_loop/22.4) /60
+      self.current_time = self.time
       self.iteration = iteration
-      #self.time = (state.game_loop/22.4) /60
-      #print('time: {}'.format(self.time))
+
 
       await self.split_army()
       await self.clean_up()
@@ -567,28 +624,28 @@ class MyBot(sc2.BotAI):
       await self.expand()
       await self.perform_task()
       #await self.defend()
-      await self.create_barracks(cc)
-      await self.create_factory(cc)
+      #await self.create_barracks(cc)
+      #await self.create_factory(cc)
 
       #await self.upgrade_to_orbital()
-      await self.build_supply_depots(cc)
+      await self.build_supply_depots()
       await self.build_workers(cc)
-      await self.lower_supply_depots()              #Only works on one supplydepot
+      await self.lower_supply_depots()
       await self.intel()
 
       #await self.position_defensive_units()
 
       #await self.put_miners_to_work(cc)
       #await self.create_barracks(cc)
-      await self.build_refinery()
+      #await self.build_refinery()
       #await self.build_offensive_force()
       #await self.attack()
 
       #if self.iteration % 500 == 0:
       #   self.harass_force_has_attacked = False
 
-      if self.iteration % 400 == 0:
-         self.build_another_barrack = True
+      #if self.iteration % 400 == 0:
+      #   self.build_another_barrack = True
       if self.iteration % 100 == 0:
          self.can_harass = True
       #if self.iteration % 50 == 0:
@@ -599,7 +656,7 @@ class MyBot(sc2.BotAI):
           
 def main():
    count = 0
-   while count != 100:
+   while count != 1:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
