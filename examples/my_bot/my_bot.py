@@ -86,8 +86,8 @@ class MyBot(sc2.BotAI):
 
        #This is for training
       if game_result == Result.Victory:
-         np.save("train_data/easy/{}.npy".format(str(int(time.time())))),
-         np.array(self.train_data)
+         np.save("train_data/easy/{}.npy".format(str(int(time.time()))), 
+                 np.array(self.train_data))
          
    # =======================================================================================
    # This is for saving model results
@@ -620,20 +620,9 @@ class MyBot(sc2.BotAI):
       return
 
    async def create_marauder(self):
-      print('')
-      print('1')
-      print('')
       if self.can_afford(UnitTypeId.MARAUDER):
-         print('')
-         print('3')
-         print('')
          for rax in self.units(UnitTypeId.BARRACKS):
-            print('')
-            print('4')
-            print('')
             if rax.has_add_on:
-               print('')
-               print('SUCCESS------------------------------------------------------------------')
                await self.do(rax.train(UnitTypeId.MARAUDER))
       return
 
@@ -673,7 +662,7 @@ class MyBot(sc2.BotAI):
           
 def main():
    count = 0
-   while count != 10:
+   while count != 200:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
