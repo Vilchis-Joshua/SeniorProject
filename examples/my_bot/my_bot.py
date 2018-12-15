@@ -43,6 +43,7 @@ class MyBot(sc2.BotAI):
    def __init__(self, use_model=False):
       self.train_data = []
       self.use_model = use_model
+      self.total_tech = 0
 
       self.do_something_after = 0
       self.supply_cap = 200
@@ -600,6 +601,7 @@ class MyBot(sc2.BotAI):
       if self.units(UnitTypeId.BARRACKS).ready.amount >= 2:
          if self.units(UnitTypeId.FACTORY).amount < 2:
             await self.build(UnitTypeId.FACTORY, near=cc.position.towards(self.game_info.map_center, 10))
+      return
 
    async def build_hellion(self):
       for f in self.units(UnitTypeId.FACTORY).ready.noqueue:
@@ -612,13 +614,27 @@ class MyBot(sc2.BotAI):
 
    async def morph_barracks(self):
       for rax in self.units(UnitTypeId.BARRACKS).idle:
-         await self.do(rax.build(UnitTypeId.BARRACKSTECHLAB))
+         if self.total_tech < 2 and not self.already_pending(UnitTypeId.BARRACKSTECHLAB):
+            self.total_tech += 1
+            await self.do(rax.build(UnitTypeId.BARRACKSTECHLAB))
       return
 
    async def create_marauder(self):
-      if self.can_afford(UnitTypeId.MARAUDER) and self.units(UnitTypeId.BARRACKSTECHLAB).exists:
+      print('')
+      print('1')
+      print('')
+      if self.can_afford(UnitTypeId.MARAUDER):
+         print('')
+         print('3')
+         print('')
          for rax in self.units(UnitTypeId.BARRACKS):
-            await self.do(rax.train(UnitTypeId.MARAUDER))
+            print('')
+            print('4')
+            print('')
+            if rax.has_add_on:
+               print('')
+               print('SUCCESS------------------------------------------------------------------')
+               await self.do(rax.train(UnitTypeId.MARAUDER))
       return
 
    async def on_step(self, iteration):
@@ -635,7 +651,7 @@ class MyBot(sc2.BotAI):
 
       await self.split_army()
       await self.clean_up()
-      if self.iteration % 100 == 0:
+      if self.iteration % 60 == 0:
          await self.distribute_workers()
       await self.scout()
       await self.expand()
@@ -647,17 +663,17 @@ class MyBot(sc2.BotAI):
       await self.lower_supply_depots()
       await self.intel()
 
-      if self.iteration % 50 == 0:
-         self.create_marauder()
       if self.iteration % 500 == 0:
          await self.defend()
       if self.iteration % 50 == 0:
          self.can_harass = True
+         await self.create_marauder()
+
       return
           
 def main():
    count = 0
-   while count != 1:
+   while count != 10:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
