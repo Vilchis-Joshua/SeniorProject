@@ -86,8 +86,8 @@ class MyBot(sc2.BotAI):
 
        #This is for training
       if game_result == Result.Victory:
-         np.save("train_data/medium/{}.npy".format(str(int(time.time()))),
-         np.array(self.train_data))
+         np.save("train_data/easy/{}.npy".format(str(int(time.time())))),
+         np.array(self.train_data)
          
    # =======================================================================================
    # This is for saving model results
