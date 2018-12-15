@@ -117,7 +117,7 @@ class MyBot(sc2.BotAI):
          return
       else:
          cc = cc.first
-      if self.iteration % 50 == 0 and self.units(UnitTypeId.SUPPLYDEPOT).ready.amount < 30:
+      if self.iteration % 50 == 0 and self.units(UnitTypeId.SUPPLYDEPOTLOWERED).ready.amount < 30:
          if self.can_afford(UnitTypeId.SUPPLYDEPOT) and not self.units(UnitTypeId.SUPPLYDEPOT).exists:
             await self.build(UnitTypeId.SUPPLYDEPOT, near=cc.position.towards(self.game_info.map_center, 5))
          elif self.units(UnitTypeId.SUPPLYDEPOT).exists:
@@ -219,6 +219,7 @@ class MyBot(sc2.BotAI):
                   break
       return
 
+   
    async def expand(self):
       try:
          if self.units(UnitTypeId.COMMANDCENTER).amount < 2 and self.can_afford(UnitTypeId.COMMANDCENTER) and not self.already_pending(UnitTypeId.COMMANDCENTER):
@@ -233,10 +234,6 @@ class MyBot(sc2.BotAI):
             return
       except Exception as e:
          print(str(e))
-      #if self.units(UnitTypeId.COMMANDCENTER).amount < (self.iteration /
-      #self.ITERATIONS_PER_MINUTE) and
-      #self.can_afford(UnitTypeId.COMMANDCENTER):
-      #   await self.expand_now()
       return
 
    async def upgrade_to_orbital(self):
@@ -244,9 +241,6 @@ class MyBot(sc2.BotAI):
       This function is for the purpose of creating the orbital command post
       """
       if self.can_afford(UnitTypeId.ORBITALCOMMAND) and self.units(UnitTypeId.MARINE).amount >= 10:
-      #   for c in self.units(UnitTypeId.COMMANDCENTER).idle:
-      #      c(AbilityId.UPGRADETOORBITAL_ORBITALCOMMAND)
-      #return
          if self.units(UnitTypeId.ORBITALCOMMAND).idle:
             await self.do(cc.first(AbilityId.UPGRADETOORBITAL_ORBITALCOMMAND))
       return
@@ -318,8 +312,8 @@ class MyBot(sc2.BotAI):
          cv2.line(game_data, (0, 7), (int(line_max * vespene_ratio), 7), (210, 200, 0), 3)  # gas / 1500
          cv2.line(game_data, (0, 3), (int(line_max * mineral_ratio), 3), (0, 255, 25), 3)  # minerals minerals/1500
 
-              # flip horizontally to make our final fix in visual
-              # representation:
+      # flip horizontally to make our final fix in visual
+      # representation:
       self.flipped = cv2.flip(game_data, 0)
       resized = cv2.resize(self.flipped, dsize=None, fx=2, fy=2)
 
@@ -409,10 +403,15 @@ class MyBot(sc2.BotAI):
          for marine in self.units(UnitTypeId.MARINE):
             if marine.tag in self.defence_unit_ids:
                await self.do(marine.attack(target))
+      #elif len(self.known_enemy_units) > 0:
+      #   target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
+      #   count = 0
+      #   for marine in self.units(UnitTypeId.MARINE):
+      #      if count <= 6:
+      #         count += 1
+      #         print('count: {}'.format(count))
+      #         await self.do(marine.attack(target))
 
-         for hellion in self.units(UnitTypeId.HELLION):
-            if hellion.tag in self.defence_unit_ids:
-               await self.do(hellion.attack(target))
       return
 
    async def split_army(self):
@@ -421,37 +420,25 @@ class MyBot(sc2.BotAI):
             if not marine.tag in self.harass_force_ids:
                if not marine.tag in self.defence_unit_ids:
                   if not marine.tag in self.main_force_ids:
-                     if len(self.harass_force_ids) <= 15:
+                     if len(self.harass_force_ids) <= 10:
                         self.harass_force_ids.append(marine.tag)
-                     elif len(self.main_force_ids) <= 40:
+                     elif len(self.main_force_ids) <= 30:
                         self.main_force_ids.append(marine.tag)
                      else:
                         self.defence_unit_ids.append(marine.tag)
       if self.units(UnitTypeId.HELLION).exists:
          for hellion in self.units(UnitTypeId.HELLION):
             if not hellion.tag in self.main_force_ids:
-               if not hellion.tag in self.defence_unit_ids:
-                  if not hellion.tag in self.hellion_harass_ids:
-                     if not len(self.hellion_harass_ids) >= 5:
-                        self.hellion_harass_ids.append(hellion.tag)
-                     elif not len(self.main_force_ids) >= 40:
-                        self.main_force_ids.append(hellion.tag)
-                     elif not len(self.defence_unit_ids) >= 5:
-                        self.defence_unit_ids.append(hellion.tag)
+               if not hellion.tag in self.hellion_harass_ids:
+                  if len(self.hellion_harass_ids) < 5:
+                     self.hellion_harass_ids.append(hellion.tag)
+                  else:
+                     self.main_force_ids.append(hellion.tag)
 
-
-      #if self.units(UnitTypeId.MARINE).exists:
-      #   for marine in self.units(UnitTypeId.MARINE):
-      #      if len(self.harass_force_ids) < 10:
-      #         if not marine.tag in self.harass_force_ids:
-      #            if not marine.tag in self.main_force_ids:
-      #               self.harass_force_ids.append(marine.tag)
-      #      else:
-      #         if not marine.tag in self.harass_force_ids:
-      #            if not marine.tag in self.main_force_ids:
-      #               self.main_force_ids.append(marine.tag)
-      #if len(self.harass_force_ids) == 10:
-      #   self.fill_harass_force = False
+      if self.units(UnitTypeId.MARAUDER).exists:
+         for m in self.units(UnitTypeId.MARAUDER):
+            if not m.tag in self.main_force_ids:
+               self.main_force_ids.append(m.tag)
       return
 
    async def clean_up(self):
@@ -477,29 +464,35 @@ class MyBot(sc2.BotAI):
          for unit_tag in temp_main_array:
             if unit_tag not in temp_array:
                self.main_force_ids.remove(unit_tag)
+      del temp_array
 
+      temp_array = []
       temp_harass_array = self.hellion_harass_ids
       for hellion in self.units(UnitTypeId.HELLION):
-         temp_harass_array.append(hellion.tag)
+         temp_array.append(hellion.tag)
 
       if len(self.hellion_harass_ids) > 0:
          for unit_tag in temp_harass_array:
             if unit_tag not in temp_harass_array:
                self.hellion_harass_ids.remove(unit_tag)
-
+     
       del temp_array
+      temp_array = []
+      temp_main_array = self.main_force_ids
+      for m in self.units(UnitTypeId.MARAUDER):
+         temp_array.append(m.tag)
+
+      if len(self.main_force_ids) > 0:
+         for unit_tag in temp_main_array:
+            if unit_tag not in temp_array:
+               self.main_force_ids.remove(unit_tag)
+      del temp_array
+
       del temp_harass_array
       del temp_main_array
       return
 
    async def perform_task(self):
-      #if self.iteration > self.do_something_after:
-         #if self.use_model:
-         #   prediction = self.model.predict([self.flipped.reshape([-1, 184, 208, 3])])
-         #   choice = np.argmax(prediction[0])
-         #   print('model choice: {}'.format(choice))
-         #else:
-         #   choice = random.randrange(0, 7)
       if self.current_time > self.do_something_after:
          if self.use_model:
                marine_weight = 2.2
@@ -528,7 +521,6 @@ class MyBot(sc2.BotAI):
                choice = random.choice(choice_weights)
 
          try:
-            #print('choice: {}'.format(choice))
             await self.choices[choice]()
          except Exception as e:
             print(str(e))
@@ -544,7 +536,7 @@ class MyBot(sc2.BotAI):
       return
 
    async def attack_closest_to_cc(self):
-      if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 40:
+      if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 30:
          target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
          for marine in self.units(UnitTypeId.MARINE):
             if marine.tag in self.main_force_ids:
@@ -555,7 +547,7 @@ class MyBot(sc2.BotAI):
       return
 
    async def attack_enemy_structure(self):
-      if len(self.known_enemy_structures) > 0 and len(self.main_force_ids) >= 40:
+      if len(self.known_enemy_structures) > 0 and len(self.main_force_ids) >= 30:
          target = random.choice(self.known_enemy_structures)
          for marine in self.units(UnitTypeId.MARINE):
             if marine.tag in self.main_force_ids:
@@ -566,7 +558,7 @@ class MyBot(sc2.BotAI):
       return
 
    async def attack_enemy_start(self):
-      if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 40:
+      if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 30:
          target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
          for marine in self.units(UnitTypeId.MARINE):
             for unit_tag in self.main_force_ids:
@@ -578,7 +570,7 @@ class MyBot(sc2.BotAI):
       return
 
    async def harass(self):
-      if len(self.harass_force_ids) >= 15 and self.can_harass == True:
+      if len(self.harass_force_ids) >= 10 and self.can_harass == True:
          self.can_harass = False
          target = self.enemy_start_locations[0]
          
@@ -619,6 +611,16 @@ class MyBot(sc2.BotAI):
                await self.do(f.train(UnitTypeId.HELLION))
       return
 
+   async def morph_barracks(self):
+      for rax in self.units(UnitTypeId.BARRACKS).idle:
+         if self.can_afford(self.units(UnitTypeId.BARRACKSTECHLAB)):
+            await self.do(rax.build(UnitTypeId.BARRACKSTECHLAB))
+
+   async def create_marauder(self):
+      if self.can_afford(UnitTypeId.MARAUDER) and self.units(UnitTypeId.BARRACKSTECHLAB).exists:
+         for rax in self.units(UnitTypeId.BARRACKS):
+            await self.do(rax.train(UnitTypeId.MARAUDER))
+   
    async def on_step(self, iteration):
       cc = self.units(UnitTypeId.COMMANDCENTER)
       if not cc.exists:
@@ -628,61 +630,34 @@ class MyBot(sc2.BotAI):
          return
       else:
          cc = cc.first
-
-
-      #self.time = (self.state.game_loop/22.4) /60
       self.current_time = self.time
       self.iteration = iteration
 
-
       await self.split_army()
       await self.clean_up()
-      await self.distribute_workers()
+      if self.iteration % 100 == 0:
+         await self.distribute_workers()
       await self.scout()
       await self.expand()
       await self.perform_task()
+      await self.morph_barracks()
 
       await self.build_supply_depots()
       await self.build_workers(cc)
       await self.lower_supply_depots()
       await self.intel()
+
+      if self.iteration % 50 == 0:
+         self.create_marauder()
       if self.iteration % 500 == 0:
          await self.defend()
-      if self.iteration % 100 == 0:
+      if self.iteration % 50 == 0:
          self.can_harass = True
-      if self.iteration % 100 == 0:
-         print(' ')
-         print('==================================================================================')
-         print('main_force_ids: {}'.format(len(self.main_force_ids)))
-         print('harass_force_ids: {}'.format(len(self.harass_force_ids)))
-         print('defence_unit_ids: {}'.format(len(self.defence_unit_ids)))
-         print('hellion_harass_ids: {}'.format(len(self.hellion_harass_ids)))
-         print('==================================================================================')
-         print(' ')
-
-      #await self.defend()
-      #await self.create_barracks(cc)
-      #await self.create_factory(cc)
-      #await self.upgrade_to_orbital()
-      #await self.position_defensive_units()
-      #await self.put_miners_to_work(cc)
-      #await self.create_barracks(cc)
-      #await self.build_refinery()
-      #await self.build_offensive_force()
-      #await self.attack()
-      #if self.iteration % 500 == 0:
-      #   self.harass_force_has_attacked = False
-      #if self.iteration % 400 == 0:
-      #   self.build_another_barrack = True
-      #if self.iteration % 50 == 0:
-      #   print('Number of harass force:
-      #   {}'.format(len(self.harass_force_ids)))
-      #   print('Number of main force: {}'.format(len(self.main_force_ids)))
       return
           
 def main():
    count = 0
-   while count != 100:
+   while count != 1:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
@@ -692,112 +667,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-   #async def put_miners_to_work(self, cc):
-   #   """
-   #   Put idle miners back to work
-   #   """
-   #   for scv in self.units(SCV).idle:
-   #      await self.do(scv.gather(self.state.mineral_field.closest_to(cc)))
-   #   return
-
-
-      #async def attack(self):
-   #   if len(self.units(UnitTypeId.MARINE).idle) > 0:
-   #      target = False
-   #      if self.iteration > self.do_something_after:
-   #         if self.use_model:
-   #            prediction = self.model.predict([self.flipped.reshape([-1, 176, 200, 3])])
-   #            choice = np.argmax(prediction[0])
-
-   #            choice_dict = {0: "No Attack!",
-   #                           1: "Attack close to our cc!",
-   #                           2: "Attack Enemy Structure!",
-   #                           3: "Attack Eneemy Start!",
-   #                           4: "Harass!",
-   #                           5: "Build Marine!"
-   #                           }
-   #            print('Choice #{}:{}'.format(choice, choice_dict[choice]))
-   #         else:
-   #            choice = random.randrange(0,5)
-
-   #         # no attack
-   #         if choice == 0:
-   #            #print('choice 1')
-   #            wait = random.randrange(65, 165)
-   #            self.do_something_after = self.iteration + wait
-
-   #         # Attack unit closest to our command center
-   #         elif choice == 1:
-   #            #print('choice 2')
-   #            if len(self.known_enemy_units) > 0:
-   #               target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
-   #               #print('choic 2 target: {}'.format(target))
-               
-            
-   #         # attack enemy structures
-   #         #elif choice == 2:
-   #            #print('choice 3')
-   #            if len(self.known_enemy_structures) > 0:
-   #               target = random.choice(self.known_enemy_structures)
-   #               #print('choic 3 target: {}'.format(target))
-
-   #         # attack enemy start
-   #         elif choice == 3:
-   #            #print('choice 4')
-   #            target = self.enemy_start_locations[0]
-   #            #print('choic 4 target: {}'.format(target))
-
-   #         elif choice == 4:
-   #            #print('choice 5')
-   #            # For now, if the harass list is full, send them in.  Later I
-   #            # need to come back and send them with more thought
-   #            if len(self.harass_force_ids) >= 10:
-   #               target = self.enemy_start_locations[0]
-   #               for unit_id in self.harass_force_ids:
-   #                  for unit in self.units(UnitTypeId.MARINE):
-   #                     if unit_id == unit.tag:
-   #                        await self.do(unit.attack(target))
-
-   #         if target:
-   #            if len(self.harass_force_ids) >= 10:
-   #               for marine in self.units(UnitTypeId.MARINE):
-   #                  if marine.tag in self.harass_force_ids:
-   #                     await self.do(marine.attack(target))
-   #         if target:
-   #            if len(self.main_force_ids) >= 30:
-   #               for marine in self.units(UnitTypeId.MARINE):
-   #                  if marine.tag in self.main_force_ids:
-   #                     await self.do(marine.attack(target))
-   #               self.main_force_has_attacked = True
-
-   #         #if self.main_force_has_attacked:
-   #         #   if len(self.main_force_ids) >= 30:
-   #         #      for marine in self.units(UnitTypeId.MARINE):
-   #         #         if marine.tag in self.main_force_ids:
-   #         #            await
-   #         #            self.do(marine.attack(self.enemy_start_locations[1]))
-
-   #         y = np.zeros(5)
-   #         y[choice] = 1
-   #         self.train_data.append([y, self.flipped])
-
-
-   #async def do_actions(self, actions: List["UnitCommand"]):
-   #   """
-   #   This function is for controlling the units. I'm not sure that I will use it quite
-   #   yet, but it is something that seems available
-   #   """
-   #   for action in actions:
-   #      cost = self._game_data.calculate_ability_cost(action.ability)
-   #      self.minerals -= cost.minerals
-   #      self.vespene -= cost.vespene
-   #   r = await self._client.actions(actions, game_data=self._game_data)
-   #   return r
