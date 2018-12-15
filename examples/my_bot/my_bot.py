@@ -53,6 +53,7 @@ class MyBot(sc2.BotAI):
 
       #self.practice_group = ControlGroup()
       self.can_harass = True
+      self.hellion_harass_ids = []
       self.harass_force_ids = []
       self.main_force_ids = []
       self.defence_unit_ids = []
@@ -84,7 +85,7 @@ class MyBot(sc2.BotAI):
 
        #This is for training
       if game_result == Result.Victory:
-         np.save("train_data/easy/{}.npy".format(str(int(time.time()))),
+         np.save("train_data/medium/{}.npy".format(str(int(time.time()))),
          np.array(self.train_data))
          
    # =======================================================================================
@@ -403,10 +404,15 @@ class MyBot(sc2.BotAI):
       return go_to
 
    async def defend(self):
-      if len(self.known_enemy_units) > 0 and len(self.defence_unit_ids) >= 5:
+      if len(self.known_enemy_units) > 0 and len(self.defence_unit_ids) >= 1:
          target = self.known_enemy_units.closest_to(random.choice(self.units(UnitTypeId.COMMANDCENTER)))
          for marine in self.units(UnitTypeId.MARINE):
-            await self.do(marine.attack(target))
+            if marine.tag in self.defence_unit_ids:
+               await self.do(marine.attack(target))
+
+         for hellion in self.units(UnitTypeId.HELLION):
+            if hellion.tag in self.defence_unit_ids:
+               await self.do(hellion.attack(target))
       return
 
    async def split_army(self):
@@ -415,16 +421,23 @@ class MyBot(sc2.BotAI):
             if not marine.tag in self.harass_force_ids:
                if not marine.tag in self.defence_unit_ids:
                   if not marine.tag in self.main_force_ids:
-                     if len(self.harass_force_ids) <= 20:
+                     if len(self.harass_force_ids) <= 15:
                         self.harass_force_ids.append(marine.tag)
-                     elif len(self.main_force_ids) <= 50:
+                     elif len(self.main_force_ids) <= 40:
                         self.main_force_ids.append(marine.tag)
                      else:
                         self.defence_unit_ids.append(marine.tag)
       if self.units(UnitTypeId.HELLION).exists:
-         for unit in self.units(UnitTypeId.HELLION):
-            if not unit.tag in self.main_force_ids:
-               self.main_force_ids.append(unit.tag)
+         for hellion in self.units(UnitTypeId.HELLION):
+            if not hellion.tag in self.main_force_ids:
+               if not hellion.tag in self.defence_unit_ids:
+                  if not hellion.tag in self.hellion_harass_ids:
+                     if not len(self.hellion_harass_ids) >= 5:
+                        self.hellion_harass_ids.append(hellion.tag)
+                     elif not len(self.main_force_ids) >= 40:
+                        self.main_force_ids.append(hellion.tag)
+                     elif not len(self.defence_unit_ids) >= 5:
+                        self.defence_unit_ids.append(hellion.tag)
 
 
       #if self.units(UnitTypeId.MARINE).exists:
@@ -453,6 +466,7 @@ class MyBot(sc2.BotAI):
             if unit_tag not in temp_array:
                self.harass_force_ids.remove(unit_tag)
       del temp_array
+      del temp_harass_array
 
       temp_array = []
       temp_main_array = self.main_force_ids
@@ -463,6 +477,15 @@ class MyBot(sc2.BotAI):
          for unit_tag in temp_main_array:
             if unit_tag not in temp_array:
                self.main_force_ids.remove(unit_tag)
+
+      temp_harass_array = self.hellion_harass_ids
+      for hellion in self.units(UnitTypeId.HELLION):
+         temp_harass_array.append(hellion.tag)
+
+      if len(self.hellion_harass_ids) > 0:
+         for unit_tag in temp_harass_array:
+            if unit_tag not in temp_harass_array:
+               self.hellion_harass_ids.remove(unit_tag)
 
       del temp_array
       del temp_harass_array
@@ -518,10 +541,7 @@ class MyBot(sc2.BotAI):
    async def do_nothing(self):
       wait = random.randrange(10, 90) / 100
       self.do_something_after = self.current_time + wait
-      #wait = random.randrange(7, 100)/100
-      #self.do_something_after = self.time + wait
-      #wait = random.randrange(10, 60)
-      #self.do_something_after = self.iteration + wait
+      return
 
    async def attack_closest_to_cc(self):
       if len(self.known_enemy_units) > 0 and len(self.main_force_ids) >= 40:
@@ -558,18 +578,16 @@ class MyBot(sc2.BotAI):
       return
 
    async def harass(self):
-      if len(self.harass_force_ids) >= 20 and self.can_harass == True:
+      if len(self.harass_force_ids) >= 15 and self.can_harass == True:
          self.can_harass = False
          target = self.enemy_start_locations[0]
-         """
-         Marines need to attack
-         """
+         
          for marine in self.units(UnitTypeId.MARINE):
             if marine.tag in self.harass_force_ids:
-                  await self.do(marine.attack(target))
-         # Hellions attack
+               await self.do(marine.attack(target))
+          # Hellions attack
          for hel in self.units(UnitTypeId.HELLION):
-            if hel.tag in self.harass_force_ids:
+            if hel.tag in self.hellion_harass_ids:
                await self.do(hel.attack(target))
       return
 
@@ -623,31 +641,39 @@ class MyBot(sc2.BotAI):
       await self.scout()
       await self.expand()
       await self.perform_task()
-      #await self.defend()
-      #await self.create_barracks(cc)
-      #await self.create_factory(cc)
 
-      #await self.upgrade_to_orbital()
       await self.build_supply_depots()
       await self.build_workers(cc)
       await self.lower_supply_depots()
       await self.intel()
+      if self.iteration % 500 == 0:
+         await self.defend()
+      if self.iteration % 100 == 0:
+         self.can_harass = True
+      if self.iteration % 100 == 0:
+         print(' ')
+         print('==================================================================================')
+         print('main_force_ids: {}'.format(len(self.main_force_ids)))
+         print('harass_force_ids: {}'.format(len(self.harass_force_ids)))
+         print('defence_unit_ids: {}'.format(len(self.defence_unit_ids)))
+         print('hellion_harass_ids: {}'.format(len(self.hellion_harass_ids)))
+         print('==================================================================================')
+         print(' ')
 
+      #await self.defend()
+      #await self.create_barracks(cc)
+      #await self.create_factory(cc)
+      #await self.upgrade_to_orbital()
       #await self.position_defensive_units()
-
       #await self.put_miners_to_work(cc)
       #await self.create_barracks(cc)
       #await self.build_refinery()
       #await self.build_offensive_force()
       #await self.attack()
-
       #if self.iteration % 500 == 0:
       #   self.harass_force_has_attacked = False
-
       #if self.iteration % 400 == 0:
       #   self.build_another_barrack = True
-      if self.iteration % 100 == 0:
-         self.can_harass = True
       #if self.iteration % 50 == 0:
       #   print('Number of harass force:
       #   {}'.format(len(self.harass_force_ids)))
@@ -656,7 +682,7 @@ class MyBot(sc2.BotAI):
           
 def main():
    count = 0
-   while count != 1:
+   while count != 100:
       run_game(sc2.maps.get("Sequencer LE"), 
                [Bot(Race.Terran, MyBot(use_model=False)),
                 Computer(Race.Protoss, Difficulty.Easy)],
