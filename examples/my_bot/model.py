@@ -95,39 +95,72 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 #tensorboard = TensorBoard(log_dir='logs/stage1')
 
 
-
-
-
 model = Sequential()
-model.add(Conv2D(32, (4,4), padding='same',
+model.add(Conv2D(32, (7, 7), padding='same',
                  input_shape=(184, 208, 3),
                  activation='relu'))
-
-
-model.add(Conv2D(16, (4,4), activation='relu'))
-model.add(Conv2D(32, (4,4), activation='relu'))
-model.add(MaxPooling2D(pool_size=(4,4)))
-model.add(Dropout(0.5))
-
-model.add(Conv2D(32, (4,4), activation='relu'))
-model.add(Conv2D(64, (4,4), activation='relu'))
-model.add(MaxPooling2D(pool_size=(2,2)))
+model.add(Conv2D(32, (3, 3), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.2))
 
-model.add(Conv2D(256, (4,4), activation='relu'))
-model.add(MaxPooling2D(pool_size=(4, 4)))
-model.add(Dropout(0.7))
+model.add(Conv2D(64, (3, 3), padding='same',
+                 activation='relu'))
+model.add(Conv2D(64, (3, 3), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Dropout(0.2))
+
+model.add(Conv2D(128, (3, 3), padding='same',
+                 activation='relu'))
+model.add(Conv2D(128, (3, 3), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Dropout(0.2))
+
+model.add(Dense(256, activation='relu'))
+model.add(Dropout(0.5))
 
 model.add(Flatten())
 model.add(Dense(1024, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(11, activation='softmax'))
-learning_rate = 0.00002
-opt = keras.optimizers.adam(lr=learning_rate, decay = 1e-6)
+
+learning_rate = 0.0001
+opt = keras.optimizers.adam(lr=learning_rate)#, decay=1e-6)
+
 model.compile(loss='categorical_crossentropy',
               optimizer=opt,
               metrics=['accuracy'])
-tensorboard = TensorBoard(log_dir='logs/stage1')
+#model = Sequential()
+#model.add(Conv2D(32, (3, 3), padding='same',
+#                 input_shape=(184, 208, 3),
+#                 activation='relu'))
+
+
+#model.add(Conv2D(8, (3, 3), activation='relu'))
+#model.add(Conv2D(32, (3, 3), activation='relu'))
+#model.add(MaxPooling2D(pool_size=(3, 3)))
+#model.add(Dropout(0.5))
+
+#model.add(Conv2D(32, (3, 3), activation='relu'))
+#model.add(Conv2D(64, (3, 3), activation='relu'))
+#model.add(MaxPooling2D(pool_size=(2,2)))
+#model.add(Dropout(0.2))
+
+
+
+#model.add(Conv2D(256, (3, 3), activation='relu'))
+#model.add(MaxPooling2D(pool_size=(3, 3)))
+#model.add(Dropout(0.7))
+
+#model.add(Flatten())
+#model.add(Dense(1024, activation='relu'))
+#model.add(Dropout(0.5))
+#model.add(Dense(11, activation='softmax'))
+#learning_rate = 0.0001
+#opt = keras.optimizers.adam(lr=learning_rate, decay = 1e-6)
+#model.compile(loss='categorical_crossentropy',
+#              optimizer=opt,
+#              metrics=['accuracy'])
+tensorboard = TensorBoard(log_dir='logs/stage6')
 
 def check_data(choices):
     total_data = 0
@@ -141,13 +174,13 @@ def check_data(choices):
     print("Total data length now is:", total_data)
     return lengths
 
-train_data_dir = 'train_data/easy'
-#train_data_dir = 'C:/Users/joshs/Desktop/DataFolder/train_data'
+train_data_dir = 'train_data/data'
+#train_data_dir = 'train_data'
 hm_epochs = 5
 
 for i in range(hm_epochs):
    current = 0
-   increment = 20
+   increment = 5
    not_maximum = True
    all_files = os.listdir(train_data_dir)
    maximum = len(all_files)
@@ -217,7 +250,7 @@ for i in range(hm_epochs):
       #test_size = 30
       #batch_size = 60
       test_size = 10
-      batch_size = 30
+      batch_size = 20
 
       x_train = np.array([i[1] for i in train_data[:-test_size]]).reshape(-1, 184, 208, 3)
       y_train = np.array([i[0] for i in train_data[:-test_size]])
@@ -231,10 +264,10 @@ for i in range(hm_epochs):
                validation_data=(x_test, y_test),
                shuffle=True,
                verbose=1,
-               epochs=1,
+               epochs=hm_epochs,
               callbacks=[tensorboard])
 
-      model.save("models/BasicCNN-{}-epochs-{}-LR-STAGE2".format(hm_epochs, learning_rate))
+      model.save("models/december-12-2018/BasicCNN-{}-epochs-{}-LR-STAGE2".format(hm_epochs, learning_rate))
       current += increment
       if current > maximum:
          not_maximum = False
