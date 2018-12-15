@@ -218,7 +218,6 @@ class MyBot(sc2.BotAI):
                   await self.do(depo(MORPH_SUPPLYDEPOT_RAISE))
                   break
       return
-
    
    async def expand(self):
       try:
@@ -613,14 +612,15 @@ class MyBot(sc2.BotAI):
 
    async def morph_barracks(self):
       for rax in self.units(UnitTypeId.BARRACKS).idle:
-         if self.can_afford(self.units(UnitTypeId.BARRACKSTECHLAB)):
-            await self.do(rax.build(UnitTypeId.BARRACKSTECHLAB))
+         await self.do(rax.build(UnitTypeId.BARRACKSTECHLAB))
+      return
 
    async def create_marauder(self):
       if self.can_afford(UnitTypeId.MARAUDER) and self.units(UnitTypeId.BARRACKSTECHLAB).exists:
          for rax in self.units(UnitTypeId.BARRACKS):
             await self.do(rax.train(UnitTypeId.MARAUDER))
-   
+      return
+
    async def on_step(self, iteration):
       cc = self.units(UnitTypeId.COMMANDCENTER)
       if not cc.exists:
