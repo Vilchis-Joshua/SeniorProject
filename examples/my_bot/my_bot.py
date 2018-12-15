@@ -666,8 +666,6 @@ class MyBot(sc2.BotAI):
       if self.iteration % 50 == 0:
          self.can_harass = True
          await self.create_marauder()
-
-      if self.iteration % 100 == 0:
       return
           
 def main():
